@@ -1,0 +1,50 @@
+{
+    "name": "hareflow",
+    "version-semver": "0.1.0",
+    "dependencies": [
+        {
+            "name": "vcpkg-cmake",
+            "version>=": "2021-02-28",
+            "host": true
+        },
+        {
+            "name": "vcpkg-cmake-config",
+            "version>=": "2021-02-26",
+            "host": true
+        },
+        {
+            "name": "fmt",
+            "version>=": "8.0.1"
+        },
+        {
+            "name": "qpid-proton",
+            "version>=": "0.37.0#1"
+        }
+    ],
+    "default-features": [ "boost" ],
+    "features": {
+        "boost": {
+            "description": "Use boost from vcpkg",
+            "dependencies": [
+                "boost-endian",
+                {
+                    "name": "boost-asio",
+                    "features": ["ssl"]
+                }
+            ]
+        },
+        "tests": {
+            "description": "Unit tests",
+            "dependencies": [
+                "gtest"
+            ]
+        },
+        "benchmarks": {
+            "description": "Benchmarks suite",
+            "dependencies": [
+                "gtest"
+            ]
+        }
+    },
+    "builtin-baseline": "3f2dfb8d7633577884e998e3e16a98f9e7c09bab"
+}
