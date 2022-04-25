@@ -45,6 +45,5 @@
                 "gtest"
             ]
         }
-    },
-    "builtin-baseline": "3f2dfb8d7633577884e998e3e16a98f9e7c09bab"
+    }
 }
