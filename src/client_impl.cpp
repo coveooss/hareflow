@@ -349,9 +349,9 @@ void ClientImpl::authenticate()
 
     std::vector<std::uint8_t> sasl_blob;
     sasl_blob.reserve(m_user.size() + m_password.size() + 2);
-    sasl_blob.emplace_back(uint8_t{0});
+    sasl_blob.push_back(0);
     sasl_blob.insert(sasl_blob.end(), m_user.begin(), m_user.end());
-    sasl_blob.emplace_back(uint8_t{0});
+    sasl_blob.push_back(0);
     sasl_blob.insert(sasl_blob.end(), m_password.begin(), m_password.end());
 
     SaslAuthenticateRequest request(++m_correlation_sequence, "PLAIN", sasl_blob);
