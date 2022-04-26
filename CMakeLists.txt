@@ -20,6 +20,9 @@ function(set_if_not_defined variable value)
     endif()
 endfunction()
 
+if(DEFINED ENV{CMAKE_TOOLCHAIN_FILE})
+    set_if_not_defined(CMAKE_TOOLCHAIN_FILE "$ENV{CMAKE_TOOLCHAIN_FILE}")
+endif()
 
 project(hareflow LANGUAGES CXX)
 enable_testing()

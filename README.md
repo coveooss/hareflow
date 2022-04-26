@@ -49,7 +49,7 @@ int main()
     hareflow::ProducerPtr producer = environment->producer_builder().stream("my-stream").build();
     for (int i = 0; i < 5; ++i) {
         hareflow::MessagePtr message = hareflow::MessageBuilder().body("some data").build();
-        producer->send(message, [&](const hareflow::ConfirmationStatus& confirmation_status) {
+        producer->send(message, [&](const hareflow::ConfirmationStatus& status) {
             if (status.confirmed) {
                 ++nb_confirmed;
             } else {
@@ -64,13 +64,20 @@ int main()
     auto message_handler = [&](const hareflow::MessageContext& context, hareflow::MessagePtr message) {
         ++nb_consumed;
     };
-    hareflow::ConsumerPtr consumer = environment->consumer_builder().offset(hareflow::OffsetSpecification::first()).stream("my-stream").message_handler(message_handler).build();
+    hareflow::ConsumerPtr consumer = environment->consumer_builder().stream("my-stream").offset(hareflow::OffsetSpecification::first()).message_handler(message_handler).build();
     // Note: waiting for messages omitted for simplicity
     consumer = nullptr;
 
     return 0;
 }
 ```
+
+## Features
+- Creating, deleting, publishing to, and consuming from streams.
+- Automatic reconnection on network or broker failure.
+- Wrapping messages in AMQP 1.0 frame for better queue interoperability.
+- Manual or automatic cursor management for consumers, with automatic periodic persist.
+- Automatic message batching, with configurable maximum publish delay.
 
 ## Installation
 Hareflow is integrated to vcpkg and it is highly suggested to use it to build and install the library: https://vcpkg.info/port/hareflow
