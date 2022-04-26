@@ -1,5 +1,9 @@
 cmake_minimum_required(VERSION 3.20 FATAL_ERROR)
 
+# To use `vcpkg`, point to its toolchain file during CMake configuration,
+# for instance with `-DCMAKE_TOOLCHAIN_FILE=$VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake`,
+# assuming that `VCPKG_ROOT` points to `vcpkg`'s directory
+
 # In case `vcpkg` is used
 list(APPEND VCPKG_FEATURE_FLAGS "versions")
 if(BUILD_BENCHMARKS)
@@ -21,9 +25,6 @@ project(hareflow LANGUAGES CXX)
 enable_testing()
 set_if_not_defined(CMAKE_GTEST_DISCOVER_TESTS_DISCOVERY_MODE "PRE_TEST") # TODO: Remove once qpid-proton RPATH is fixed
 
-# To use `vcpkg`, points to its toolchain file during CMake configuration,
-# for instance with `-DCMAKE_TOOLCHAIN_FILE=$VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake`,
-# assuming that `VCPKG_ROOT` points to `vcpkg`'s directory
 option(BUILD_TESTS "Build tests" OFF)
 option(BUILD_BENCHMARKS "Build benchmarks" OFF)
 option(BUILD_WARNINGS "Build with hareflow's warnings setting" ON)

@@ -5,6 +5,26 @@ It uses an API similar to the existing official Java client, with the ability to
 
 ![License](https://img.shields.io/github/license/coveooss/hareflow)
 
+## Quick Start
+
+Assuming that [vcpkg](https://github.com/microsoft/vcpkg) is used,
+
+```shell
+git clone https://github.com/coveooss/hareflow
+cmake \
+    [-DBUILD_BENCHMARKS=TRUE] \
+    [-DBUILD_TESTS=TRUE] \
+    -DCMAKE_TOOLCHAIN_FILE=<VCPKG_ROOT>/scripts/buildsystems/vcpkg.cmake \
+    -B build -S hareflow
+cmake --build build
+ctest --test-dir build
+cmake --install build --prefix staging
+cpack --config build/CPackConfig.cmake
+```
+
+where `<VCPKG_ROOT>` is the path of the vcpkg repository on your machine.
+It is typical to define an environment variable `VCPKG_ROOT` to point on this path.
+
 ## Project State and Maturity
 The project is still in development, however most APIs are expected to remain stable and API breaking changes will be kept to a minimum.
 
