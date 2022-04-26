@@ -26,7 +26,7 @@ target_compile_definitions(hareflow
         HAREFLOW_EXPORTS
 )
 target_compile_features(hareflow PUBLIC cxx_std_17)
-target_compile_options(hareflow PRIVATE $<$<CXX_COMPILER_ID:MSVC>:/wd4251>) # TODO: Maybe this should be `PUBLIC`: test on Windows
+target_compile_options(hareflow PUBLIC $<$<CXX_COMPILER_ID:MSVC>:/wd4251 /wd4996>)
 
 install(TARGETS hareflow
     EXPORT ${PROJECT_NAME}-targets

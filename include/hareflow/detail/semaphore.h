@@ -8,7 +8,7 @@
 
 namespace hareflow::detail {
 
-class SemaphoreDestroyedException : std::runtime_error
+class SemaphoreDestroyedException : public std::runtime_error
 {
     using std::runtime_error::runtime_error;
 };
