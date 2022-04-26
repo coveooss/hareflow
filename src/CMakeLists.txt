@@ -21,6 +21,8 @@ target_link_libraries(hareflow
 )
 
 target_compile_definitions(hareflow
+    PUBLIC
+        $<$<NOT:$<BOOL:${BUILD_SHARED_LIBS}>>:HAREFLOW_BUILDING_STATIC>
     PRIVATE
         $<$<PLATFORM_ID:Windows>:_WIN32_WINNT=0x603>
         HAREFLOW_EXPORTS
