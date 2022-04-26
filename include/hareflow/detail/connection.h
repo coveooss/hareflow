@@ -4,8 +4,17 @@
 #include <deque>
 #include <memory>
 
+#ifdef _WIN32
+#    pragma warning(push)
+#    pragma warning(disable : 4996)
+#endif
+
 #include <boost/asio.hpp>
 #include <boost/asio/ssl.hpp>
+
+#ifdef _WIN32
+#    pragma warning(pop)
+#endif
 
 #include "hareflow/detail/binary_buffer.h"
 

@@ -1,7 +1,8 @@
-find_package(GTest REQUIRED)
-
 add_executable(hareflow_tests)
+include(GoogleTest)
+gtest_discover_tests(hareflow_tests)
 
+find_package(GTest REQUIRED)
 target_link_libraries(hareflow_tests
 	PRIVATE
 		GTest::GTest
@@ -12,5 +13,5 @@ target_link_libraries(hareflow_tests
 
 target_sources(hareflow_tests
 	PRIVATE
-		src/producer.cpp
+		${CMAKE_CURRENT_LIST_DIR}/producer.cpp
 )

@@ -25,7 +25,7 @@ const hareflow::Properties DEFAULT_CLIENT_PROPERTIES = {{"product", "RabbitMQ St
                                                         {"license", "Apache License Version 2.0"},
                                                         {"source", "https://github.com/coveooss/rabbitmq-stream-cpp-client"}};
 
-class ServerCloseException : std::runtime_error
+class ServerCloseException : public std::runtime_error
 {
     using std::runtime_error::runtime_error;
 };
@@ -349,9 +349,9 @@ void ClientImpl::authenticate()
 
     std::vector<std::uint8_t> sasl_blob;
     sasl_blob.reserve(m_user.size() + m_password.size() + 2);
-    sasl_blob.emplace_back(0);
+    sasl_blob.push_back(0);
     sasl_blob.insert(sasl_blob.end(), m_user.begin(), m_user.end());
-    sasl_blob.emplace_back(0);
+    sasl_blob.push_back(0);
     sasl_blob.insert(sasl_blob.end(), m_password.begin(), m_password.end());
 
     SaslAuthenticateRequest request(++m_correlation_sequence, "PLAIN", sasl_blob);
@@ -428,7 +428,6 @@ void ClientImpl::handle_frames()
 {
     std::shared_ptr<ClientImpl> self;
     ShutdownReason              shutdown_reason;
-    BinaryBuffer                buffer;
 
     while (true) {
         BinaryBuffer buffer;
