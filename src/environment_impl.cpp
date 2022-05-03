@@ -24,9 +24,9 @@ template<typename Container> auto select_randomly(Container& candidates)
 
 namespace hareflow::detail {
 
-std::shared_ptr<EnvironmentImpl> EnvironmentImpl::create(std::vector<std::string> hosts,
-                                                         std::chrono::seconds     recovery_retry_delay,
-                                                         ClientParameters         client_parameters)
+std::shared_ptr<EnvironmentImpl> EnvironmentImpl::create(std::vector<std::string>  hosts,
+                                                         std::chrono::milliseconds recovery_retry_delay,
+                                                         ClientParameters          client_parameters)
 {
     return std::shared_ptr<EnvironmentImpl>{new EnvironmentImpl{std::move(hosts), recovery_retry_delay, std::move(client_parameters)}};
 }
@@ -81,7 +81,7 @@ InternalClientPtr EnvironmentImpl::get_producer_client(std::string_view stream, 
     std::string host;
     locator_operation([&host, &stream](Client& client) {
         StreamMetadata metadata = fetch_stream_metadata(client, stream);
-        host                    = std::move(metadata.get_leader()->get_host());
+        host                    = std::move(metadata.get_leader().get_host());
     });
     return ClientImpl::create(std::move(parameters.with_host(std::move(host))));
 }
@@ -104,9 +104,9 @@ InternalClientPtr EnvironmentImpl::get_consumer_client(std::string_view stream, 
     locator_operation([&host, &stream](Client& client) {
         StreamMetadata metadata = fetch_stream_metadata(client, stream);
         if (!metadata.get_replicas().empty()) {
-            host = std::move(select_randomly(metadata.get_replicas())->get_host());
+            host = std::move(select_randomly(metadata.get_replicas()).get_host());
         } else {
-            host = std::move(metadata.get_leader()->get_host());
+            host = std::move(metadata.get_leader().get_host());
         }
     });
     return ClientImpl::create(std::move(parameters.with_host(std::move(host))));
@@ -118,7 +118,7 @@ void EnvironmentImpl::unregister_consumer(InternalConsumerWeakPtr consumer)
     m_consumers.erase(consumer);
 }
 
-std::chrono::seconds EnvironmentImpl::get_recovery_retry_delay()
+std::chrono::milliseconds EnvironmentImpl::get_recovery_retry_delay()
 {
     return m_recovery_retry_delay;
 }
@@ -186,7 +186,7 @@ StreamMetadata EnvironmentImpl::fetch_stream_metadata(Client& client, std::strin
     return metadata;
 }
 
-EnvironmentImpl::EnvironmentImpl(std::vector<std::string> hosts, std::chrono::seconds recovery_retry_delay, ClientParameters client_parameters)
+EnvironmentImpl::EnvironmentImpl(std::vector<std::string> hosts, std::chrono::milliseconds recovery_retry_delay, ClientParameters client_parameters)
  : m_hosts{std::move(hosts)},
    m_recovery_retry_delay{recovery_retry_delay},
    m_client_parameters{std::move(client_parameters)},

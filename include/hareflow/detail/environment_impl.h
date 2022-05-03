@@ -29,19 +29,19 @@ public:
     virtual InternalClientPtr get_consumer_client(std::string_view stream, ClientParameters parameters) = 0;
     virtual void              unregister_consumer(InternalConsumerWeakPtr consumer)                     = 0;
 
-    virtual std::chrono::seconds get_recovery_retry_delay()                                = 0;
-    virtual ClientParameters     get_base_client_parameters()                              = 0;
-    virtual CodecPtr             get_codec()                                               = 0;
-    virtual BackgroundScheduler& background_scheduler()                                    = 0;
-    virtual void                 locator_operation(std::function<void(Client&)> operation) = 0;
+    virtual std::chrono::milliseconds get_recovery_retry_delay()                                = 0;
+    virtual ClientParameters          get_base_client_parameters()                              = 0;
+    virtual CodecPtr                  get_codec()                                               = 0;
+    virtual BackgroundScheduler&      background_scheduler()                                    = 0;
+    virtual void                      locator_operation(std::function<void(Client&)> operation) = 0;
 };
 
 class EnvironmentImpl final : public InternalEnvironment, public std::enable_shared_from_this<EnvironmentImpl>
 {
 public:
-    static std::shared_ptr<EnvironmentImpl> create(std::vector<std::string> hosts,
-                                                   std::chrono::seconds     recovery_retry_delay,
-                                                   ClientParameters         client_parameters);
+    static std::shared_ptr<EnvironmentImpl> create(std::vector<std::string>  hosts,
+                                                   std::chrono::milliseconds recovery_retry_delay,
+                                                   ClientParameters          client_parameters);
     virtual ~EnvironmentImpl();
 
     ProducerBuilder producer_builder() override;
@@ -57,23 +57,23 @@ public:
     InternalClientPtr get_consumer_client(std::string_view stream, ClientParameters parameters) override;
     void              unregister_consumer(InternalConsumerWeakPtr consumer) override;
 
-    std::chrono::seconds get_recovery_retry_delay() override;
-    ClientParameters     get_base_client_parameters() override;
-    CodecPtr             get_codec() override;
-    BackgroundScheduler& background_scheduler() override;
-    void                 locator_operation(std::function<void(Client&)> operation) override;
+    std::chrono::milliseconds get_recovery_retry_delay() override;
+    ClientParameters          get_base_client_parameters() override;
+    CodecPtr                  get_codec() override;
+    BackgroundScheduler&      background_scheduler() override;
+    void                      locator_operation(std::function<void(Client&)> operation) override;
 
 private:
     static StreamMetadata fetch_stream_metadata(Client& client, std::string_view stream);
 
-    EnvironmentImpl(std::vector<std::string> hosts, std::chrono::seconds recovery_retry_delay, ClientParameters client_parameters);
+    EnvironmentImpl(std::vector<std::string> hosts, std::chrono::milliseconds recovery_retry_delay, ClientParameters client_parameters);
 
     InternalClientPtr get_locator_client();
     void              handle_locator_shutdown(ShutdownReason reason);
     void              reconnect_to_server();
 
     const std::vector<std::string>                       m_hosts;
-    const std::chrono::seconds                           m_recovery_retry_delay;
+    const std::chrono::milliseconds                      m_recovery_retry_delay;
     const ClientParameters                               m_client_parameters;
     BackgroundScheduler                                  m_scheduler;
     ReschedulableTask                                    m_reconnect_locator_task;

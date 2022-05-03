@@ -140,16 +140,16 @@ StreamMetadataSet ClientImpl::metadata(const std::vector<std::string>& streams)
     MetadataRequest request(++m_correlation_sequence, streams);
     auto            response = send_request_wait_response<MetadataResponse>(request);
 
-    std::map<std::uint16_t, BrokerPtr> brokers;
+    std::map<std::uint16_t, Broker> brokers;
     for (auto& broker : response->get_brokers()) {
-        brokers.emplace(broker.m_reference, std::make_shared<Broker>(std::move(broker.m_host), static_cast<std::uint16_t>(broker.m_port)));
+        brokers.try_emplace(broker.m_reference, std::move(broker.m_host), static_cast<std::uint16_t>(broker.m_port));
     }
 
     StreamMetadataSet result;
     try {
         for (auto& stream_meta : response->get_stream_metadata()) {
-            BrokerPtr              leader;
-            std::vector<BrokerPtr> replicas;
+            Broker              leader;
+            std::vector<Broker> replicas;
             if (static_cast<ResponseCode>(stream_meta.m_code) == ResponseCode::Ok) {
                 leader = brokers.at(stream_meta.m_leader);
                 for (std::uint16_t reference : stream_meta.m_replicas) {
@@ -426,8 +426,7 @@ std::future<void> ClientImpl::send_frame(const Serializable& frame)
 
 void ClientImpl::handle_frames()
 {
-    std::shared_ptr<ClientImpl> self;
-    ShutdownReason              shutdown_reason;
+    ShutdownReason shutdown_reason;
 
     while (true) {
         BinaryBuffer buffer;
@@ -477,8 +476,8 @@ void ClientImpl::handle_frames()
             Logger::warn("Connection failed unexpectedly");
         }
 
-        // Make sure the client lives until the end of the method, since shutdown callback might drop last living reference
-        self = shared_from_this();
+        // Must not touch ANY member after this call, shutdown callback might have dropped last living reference to object
+        // and have detached this thread from it.
         shutdown(shutdown_reason);
     }
 }

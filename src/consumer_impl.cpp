@@ -37,6 +37,8 @@ void ConsumerImpl::start()
         throw StreamException{"Invalid status for start request"};
     }
 
+    std::unique_lock lock{m_mutex};
+
     auto environment = get_environment();
     environment->register_consumer(weak_from_this());
     m_client = get_client(environment);
@@ -49,7 +51,15 @@ void ConsumerImpl::start()
         }
     }
     m_client->subscribe(m_subscription_id, m_stream, *m_initial_offset, 10, {});
-    m_status = Status::Started;
+
+    if (m_persist_cursor_task.valid()) {
+        m_persist_cursor_task.schedule_after(m_auto_cursor_config->force_persist_delay());
+    }
+
+    expected = Status::Starting;
+    if (!m_status.compare_exchange_strong(expected, Status::Started)) {
+        throw StreamException("Consumer was stopped while start was ongoing");
+    }
 }
 
 void ConsumerImpl::stop()
@@ -98,14 +108,14 @@ ConsumerImpl::ConsumerImpl(std::string                                 name,
    m_mutex{},
    m_subscription_id{0},  // No multiplexing for now
    m_initial_offset{std::move(offset_specification)},
-   m_last_seen_offset{0},
+   m_last_seen_offset{std::nullopt},
    m_messages_since_last_persist{0},
    m_client{},
    m_persist_cursor_task{},
    m_reconnect_task{},
    m_delayed_reconnect_task{}
 {
-    if (m_auto_cursor_config && m_auto_cursor_config->force_persist_delay() != std::chrono::seconds::zero()) {
+    if (m_auto_cursor_config && m_auto_cursor_config->force_persist_delay() != std::chrono::milliseconds::zero()) {
         m_persist_cursor_task = ReschedulableTask{environment->background_scheduler(), [this]() { store_current_offset(); }};
     }
     m_reconnect_task         = ReschedulableTask{environment->background_scheduler(), [this]() { reconnect_to_server(); }};
@@ -207,7 +217,9 @@ void ConsumerImpl::handle_message(std::int64_t timestamp, std::uint64_t offset, 
 
     if (store_offset) {
         std::unique_lock lock{m_mutex};
-        internal_store_offset(offset);
+        if (m_messages_since_last_persist >= m_auto_cursor_config->persist_frequency()) {
+            internal_store_offset(offset);
+        }
     }
 }
 
@@ -259,7 +271,7 @@ void ConsumerImpl::reconnect_to_server()
 {
     {
         std::unique_lock lock{m_mutex};
-        if (m_client != nullptr) {
+        if (m_client != nullptr || m_status != Status::Started) {
             return;
         }
     }
@@ -270,6 +282,12 @@ void ConsumerImpl::reconnect_to_server()
         client->start();
 
         std::unique_lock lock{m_mutex};
+        if (m_status != Status::Started) {
+            // Consumer stopped while we were initiating connection, bail out
+            client->stop();
+            return;
+        }
+
         if (m_last_seen_offset) {
             m_initial_offset = OffsetSpecification::offset(*m_last_seen_offset + 1);
         }

@@ -34,10 +34,16 @@ OffsetSpecification OffsetSpecification::offset(std::uint64_t offset)
     return OffsetSpecification(OFFSET_OFFSET, offset);
 }
 
+OffsetSpecification OffsetSpecification::timestamp(std::chrono::system_clock::time_point timestamp)
+{
+    std::chrono::milliseconds since_epoch = std::chrono::duration_cast<std::chrono::milliseconds>(timestamp.time_since_epoch());
+    return OffsetSpecification::timestamp(since_epoch.count());
+}
+
 OffsetSpecification OffsetSpecification::timestamp(std::int64_t timestamp)
 {
     if (timestamp < 0) {
-        throw InvalidInputException("Specified timestamp is negative");
+        throw InvalidInputException("Specified timestamp is before epoch");
     }
     return OffsetSpecification(OFFSET_TIMESTAMP, static_cast<std::uint64_t>(timestamp));
 }
@@ -60,6 +66,11 @@ bool OffsetSpecification::is_offset() const
 bool OffsetSpecification::is_timestamp() const
 {
     return m_type == OFFSET_TIMESTAMP;
+}
+
+bool OffsetSpecification::operator==(const OffsetSpecification& other) const
+{
+    return std::tie(m_type, m_offset) == std::tie(other.m_type, other.m_offset);
 }
 
 OffsetSpecification::OffsetSpecification(std::uint16_t type, std::uint64_t offset) : m_type(type), m_offset(offset)
@@ -85,7 +96,7 @@ std::string& Broker::get_host()
     return m_host;
 }
 
-StreamMetadata::StreamMetadata(std::string stream_name, ResponseCode response_code, BrokerPtr leader, std::vector<BrokerPtr> replicas)
+StreamMetadata::StreamMetadata(std::string stream_name, ResponseCode response_code, Broker leader, std::vector<Broker> replicas)
  : m_stream_name(std::move(stream_name)),
    m_response_code(response_code),
    m_leader(std::move(leader)),
@@ -103,12 +114,12 @@ ResponseCode StreamMetadata::get_response_code() const
     return m_response_code;
 }
 
-BrokerPtr StreamMetadata::get_leader() const
+const Broker& StreamMetadata::get_leader() const
 {
     return m_leader;
 }
 
-const std::vector<BrokerPtr>& StreamMetadata::get_replicas() const
+const std::vector<Broker>& StreamMetadata::get_replicas() const
 {
     return m_replicas;
 }
@@ -118,7 +129,12 @@ std::string& StreamMetadata::get_stream_name()
     return m_stream_name;
 }
 
-std::vector<BrokerPtr>& StreamMetadata::get_replicas()
+Broker& StreamMetadata::get_leader()
+{
+    return m_leader;
+}
+
+std::vector<Broker>& StreamMetadata::get_replicas()
 {
     return m_replicas;
 }

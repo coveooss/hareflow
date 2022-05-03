@@ -42,6 +42,7 @@ struct MessageContext {
     std::int64_t  timestamp;
     Consumer*     consumer;
 };
+
 class Message
 {
 public:
@@ -60,8 +61,8 @@ public:
     }
 
 private:
-    const std::vector<std::uint8_t>          m_body;
-    const std::map<std::string, std::string> m_headers;
+    std::vector<std::uint8_t>          m_body;
+    std::map<std::string, std::string> m_headers;
 };
 using MessagePtr = std::shared_ptr<Message>;
 
@@ -118,7 +119,7 @@ public:
     }
 
     AutomaticCursorConfiguration() = default;
-    AutomaticCursorConfiguration(std::uint32_t persist_frequency, std::chrono::seconds force_persist_delay)
+    AutomaticCursorConfiguration(std::uint32_t persist_frequency, std::chrono::milliseconds force_persist_delay)
      : m_persist_frequency{persist_frequency},
        m_force_persist_delay{force_persist_delay}
     {
@@ -129,14 +130,14 @@ public:
         return m_persist_frequency;
     }
 
-    std::chrono::seconds force_persist_delay() const
+    std::chrono::milliseconds force_persist_delay() const
     {
         return m_force_persist_delay;
     }
 
 private:
-    std::uint32_t        m_persist_frequency   = default_persist_frequency();
-    std::chrono::seconds m_force_persist_delay = default_force_persist_delay();
+    std::uint32_t             m_persist_frequency   = default_persist_frequency();
+    std::chrono::milliseconds m_force_persist_delay = default_force_persist_delay();
 };
 
 class HAREFLOW_EXPORT OffsetSpecification
@@ -146,12 +147,15 @@ public:
     static OffsetSpecification last();
     static OffsetSpecification next();
     static OffsetSpecification offset(std::uint64_t offset);
+    static OffsetSpecification timestamp(std::chrono::system_clock::time_point timestamp);
     static OffsetSpecification timestamp(std::int64_t timestamp);
 
     std::uint16_t get_type() const;
     std::uint64_t get_offset() const;
     bool          is_offset() const;
     bool          is_timestamp() const;
+
+    bool operator==(const OffsetSpecification&) const;
 
 private:
     OffsetSpecification(std::uint16_t type, std::uint64_t offset);
@@ -180,30 +184,29 @@ private:
     std::uint16_t m_port;
 };
 
-using BrokerPtr = std::shared_ptr<Broker>;
-
 class HAREFLOW_EXPORT StreamMetadata
 {
 public:
-    StreamMetadata(std::string stream_name, ResponseCode response_code, BrokerPtr leader, std::vector<BrokerPtr> replicas);
+    StreamMetadata(std::string stream_name, ResponseCode response_code, Broker leader, std::vector<Broker> replicas);
     StreamMetadata(const StreamMetadata&) = default;
     StreamMetadata(StreamMetadata&&)      = default;
     StreamMetadata& operator=(const StreamMetadata&) = default;
     StreamMetadata& operator=(StreamMetadata&&) = default;
 
-    const std::string&            get_stream_name() const;
-    ResponseCode                  get_response_code() const;
-    BrokerPtr                     get_leader() const;
-    const std::vector<BrokerPtr>& get_replicas() const;
+    const std::string&         get_stream_name() const;
+    ResponseCode               get_response_code() const;
+    const Broker&              get_leader() const;
+    const std::vector<Broker>& get_replicas() const;
 
-    std::string&            get_stream_name();
-    std::vector<BrokerPtr>& get_replicas();
+    std::string&         get_stream_name();
+    Broker&              get_leader();
+    std::vector<Broker>& get_replicas();
 
 private:
-    std::string            m_stream_name;
-    ResponseCode           m_response_code;
-    BrokerPtr              m_leader;
-    std::vector<BrokerPtr> m_replicas;
+    std::string         m_stream_name;
+    ResponseCode        m_response_code;
+    Broker              m_leader;
+    std::vector<Broker> m_replicas;
 };
 
 struct StreamMetadataLess {

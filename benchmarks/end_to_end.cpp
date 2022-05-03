@@ -62,7 +62,7 @@ void publish_messages(hareflow::EnvironmentPtr environment, const std::string& s
     for (std::uint32_t i = 0; i < publish_count; ++i) {
         hareflow::MessagePtr message = hareflow::MessageBuilder().body(std::to_string(i)).build();
         producer->send(message, [&](const hareflow::ConfirmationStatus& confirmation) {
-            EXPECT_EQ(true, confirmation.confirmed);
+            EXPECT_EQ(confirmation.confirmed, true);
             if (++confirm_count == publish_count) {
                 {
                     std::unique_lock lock{mutex};
@@ -73,7 +73,7 @@ void publish_messages(hareflow::EnvironmentPtr environment, const std::string& s
     }
     std::unique_lock lock{mutex};
     auto             successful = done.wait_for(lock, std::chrono::seconds(60), [&]() { return confirm_count == publish_count; });
-    EXPECT_EQ(true, successful);
+    EXPECT_EQ(successful, true);
 }
 
 void consume_messages(hareflow::EnvironmentPtr environment, const std::string& stream)
@@ -96,7 +96,7 @@ void consume_messages(hareflow::EnvironmentPtr environment, const std::string& s
 
     std::unique_lock lock{mutex};
     bool             successful = done.wait_for(lock, std::chrono::seconds(60), [&]() { return consume_count == publish_count; });
-    EXPECT_EQ(true, successful);
+    EXPECT_EQ(successful, true);
 }
 
 void run_producer_benchmark(hareflow::EnvironmentPtr environment)

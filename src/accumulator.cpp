@@ -29,8 +29,11 @@ bool Accumulator::add(std::uint64_t publishing_id, MessagePtr message, Confirmat
         throw InvalidInputException{fmt::format("Maximum frame size exceeded ({})", m_max_frame_size)};
     }
 
-    AccumulatedMessagePtr accumulated = std::make_shared<AccumulatedMessage>(
-        AccumulatedMessage{publishing_id, std::chrono::steady_clock::now(), std::move(message), std::move(encoded), std::move(confirmation_handler)});
+    AccumulatedMessagePtr accumulated = std::make_shared<AccumulatedMessage>(publishing_id,
+                                                                             std::chrono::steady_clock::now(),
+                                                                             std::move(message),
+                                                                             std::move(encoded),
+                                                                             std::move(confirmation_handler));
     m_space_available.wait(lock, [this] { return m_pending.size() < m_capacity || m_destroyed; });
     if (m_destroyed) {
         throw AccumulatorDestroyedException{"Accumulator was destroyed"};

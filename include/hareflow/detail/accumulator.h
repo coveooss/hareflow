@@ -12,6 +12,19 @@
 namespace hareflow::detail {
 
 struct AccumulatedMessage {
+    AccumulatedMessage(std::uint64_t                         publishing_id,
+                       std::chrono::steady_clock::time_point publish_time,
+                       MessagePtr                            message,
+                       std::vector<std::uint8_t>             encoded_message,
+                       ConfirmationHandler                   confirmation_handler)
+     : publishing_id(publishing_id),
+       publish_time(publish_time),
+       message(std::move(message)),
+       encoded_message(std::move(encoded_message)),
+       confirmation_handler(std::move(confirmation_handler))
+    {
+    }
+
     std::uint64_t                         publishing_id;
     std::chrono::steady_clock::time_point publish_time;
     MessagePtr                            message;

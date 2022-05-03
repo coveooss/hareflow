@@ -20,6 +20,7 @@ function(set_if_not_defined variable value)
     endif()
 endfunction()
 
+# For CMake 3.20, this isn't needed for 3.21+
 if(DEFINED ENV{CMAKE_TOOLCHAIN_FILE})
     set_if_not_defined(CMAKE_TOOLCHAIN_FILE "$ENV{CMAKE_TOOLCHAIN_FILE}")
 endif()

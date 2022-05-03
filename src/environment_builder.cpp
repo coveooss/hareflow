@@ -82,9 +82,9 @@ EnvironmentBuilder& EnvironmentBuilder::rpc_timeout(std::chrono::seconds rpc_tim
     return *this;
 }
 
-EnvironmentBuilder& EnvironmentBuilder::recovery_retry_delay(std::chrono::seconds recovery_retry_delay) &
+EnvironmentBuilder& EnvironmentBuilder::recovery_retry_delay(std::chrono::milliseconds recovery_retry_delay) &
 {
-    if (recovery_retry_delay <= std::chrono::seconds::zero()) {
+    if (recovery_retry_delay <= std::chrono::milliseconds::zero()) {
         throw InvalidInputException{"recovery retry delay must be positive"};
     }
     m_recovery_retry_delay = recovery_retry_delay;
@@ -161,7 +161,7 @@ EnvironmentBuilder EnvironmentBuilder::rpc_timeout(std::chrono::seconds rpc_time
     return std::move(this->rpc_timeout(rpc_timeout));
 }
 
-EnvironmentBuilder EnvironmentBuilder::recovery_retry_delay(std::chrono::seconds recovery_retry_delay) &&
+EnvironmentBuilder EnvironmentBuilder::recovery_retry_delay(std::chrono::milliseconds recovery_retry_delay) &&
 {
     return std::move(this->recovery_retry_delay(recovery_retry_delay));
 }

@@ -38,8 +38,11 @@ ConsumerBuilder& ConsumerBuilder::manual_cursor_management() &
 
 ConsumerBuilder& ConsumerBuilder::automatic_cursor_management(AutomaticCursorConfiguration cursor_configuration) &
 {
-    if (cursor_configuration.force_persist_delay() < std::chrono::seconds::zero()) {
+    if (cursor_configuration.force_persist_delay() < std::chrono::milliseconds::zero()) {
         throw InvalidInputException("force persist delay must not be negative");
+    }
+    if (cursor_configuration.persist_frequency() == 0 && cursor_configuration.force_persist_delay() == std::chrono::milliseconds::zero()) {
+        throw InvalidInputException("Automatic cursor management requires a either a message frequency or persist delay");
     }
     m_auto_cursor_config = std::move(cursor_configuration);
     return *this;

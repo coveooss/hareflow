@@ -27,7 +27,7 @@ public:
     EnvironmentBuilder& requested_heartbeat(std::chrono::seconds requested_heartbeat) &;
     EnvironmentBuilder& requested_max_frame_size(std::uint32_t requested_max_frame_size) &;
     EnvironmentBuilder& rpc_timeout(std::chrono::seconds rpc_timeout) &;
-    EnvironmentBuilder& recovery_retry_delay(std::chrono::seconds recovery_retry_delay) &;
+    EnvironmentBuilder& recovery_retry_delay(std::chrono::milliseconds recovery_retry_delay) &;
     EnvironmentBuilder& client_properties(Properties client_properties) &;
     EnvironmentBuilder& codec(CodecPtr codec) &;
 
@@ -42,7 +42,7 @@ public:
     EnvironmentBuilder requested_heartbeat(std::chrono::seconds requested_heartbeat) &&;
     EnvironmentBuilder requested_max_frame_size(std::uint32_t requested_max_frame_size) &&;
     EnvironmentBuilder rpc_timeout(std::chrono::seconds rpc_timeout) &&;
-    EnvironmentBuilder recovery_retry_delay(std::chrono::seconds recovery_retry_delay) &&;
+    EnvironmentBuilder recovery_retry_delay(std::chrono::milliseconds recovery_retry_delay) &&;
     EnvironmentBuilder client_properties(Properties client_properties) &&;
     EnvironmentBuilder codec(CodecPtr codec) &&;
 
@@ -50,9 +50,9 @@ public:
     EnvironmentPtr build() &&;
 
 private:
-    std::vector<std::string> m_hosts                = {"localhost"};
-    std::chrono::seconds     m_recovery_retry_delay = std::chrono::seconds{5};
-    ClientParameters         m_client_parameters    = {};
+    std::vector<std::string>  m_hosts                = {"localhost"};
+    std::chrono::milliseconds m_recovery_retry_delay = std::chrono::seconds{5};
+    ClientParameters          m_client_parameters    = {};
 };
 
 }  // namespace hareflow

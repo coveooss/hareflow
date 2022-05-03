@@ -8,6 +8,15 @@
 #include "hareflow/detail/commands.h"
 #include "hareflow/detail/environment_impl.h"
 
+namespace {
+
+std::chrono::milliseconds get_confirm_check_delay(std::chrono::milliseconds timeout)
+{
+    return std::min(std::chrono::milliseconds{1000}, std::max(std::chrono::milliseconds{1}, timeout / 2));
+}
+
+}  // namespace
+
 namespace hareflow::detail {
 
 std::shared_ptr<ProducerImpl> ProducerImpl::create(std::string               name,
@@ -49,16 +58,17 @@ void ProducerImpl::start()
 
     m_client->start();
     m_accumulator->set_max_frame_size(m_client->max_frame_size());
-    m_client->declare_publisher(m_publisher_id, m_name, m_stream);
     if (!m_name.empty()) {
         std::optional<std::uint64_t> last_published = m_client->query_publisher_sequence(m_name, m_stream);
         m_next_publishing_id                        = last_published ? *last_published + 1 : 0;
     }
+    m_client->declare_publisher(m_publisher_id, m_name, m_stream);
+
     if (m_batch_publish_task.valid()) {
         m_batch_publish_task.schedule_after(m_batch_publishing_delay);
     }
     if (m_confirm_timeout_task.valid()) {
-        m_confirm_timeout_task.schedule_after(std::chrono::seconds(1));
+        m_confirm_timeout_task.schedule_after(get_confirm_check_delay(m_confirm_timeout));
     }
 
     expected = Status::Starting;
@@ -327,7 +337,7 @@ void ProducerImpl::check_confirm_timeout()
             message->confirmation_handler(ConfirmationStatus{message->publishing_id, message->message, false, static_cast<std::uint16_t>(error_code)});
         }
     }
-    m_confirm_timeout_task.schedule_after(std::chrono::seconds(1));
+    m_confirm_timeout_task.schedule_after(get_confirm_check_delay(m_confirm_timeout));
 }
 
 void ProducerImpl::delayed_reconnect()
@@ -364,6 +374,7 @@ void ProducerImpl::reconnect_to_server()
         std::unique_lock lock{m_mutex};
         if (m_status != Status::Started) {
             // Producer stopped while we were initiating connection, bail out
+            client->stop();
             return;
         }
 
