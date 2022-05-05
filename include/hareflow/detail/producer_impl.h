@@ -14,7 +14,7 @@
 
 namespace hareflow::detail {
 
-class InternalProducer : public Producer
+class HAREFLOW_EXPORT InternalProducer : public Producer
 {
 public:
     virtual ~InternalProducer() = default;

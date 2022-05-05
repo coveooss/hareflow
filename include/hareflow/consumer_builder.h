@@ -8,36 +8,36 @@
 
 namespace hareflow {
 
-class ConsumerBuilder
+class HAREFLOW_EXPORT ConsumerBuilder
 {
 public:
     ConsumerBuilder(detail::InternalEnvironmentPtr environment);
-    HAREFLOW_EXPORT ConsumerBuilder(const ConsumerBuilder&) = default;
-    HAREFLOW_EXPORT ConsumerBuilder(ConsumerBuilder&&)      = default;
-    HAREFLOW_EXPORT ~ConsumerBuilder()                      = default;
-    HAREFLOW_EXPORT ConsumerBuilder& operator=(const ConsumerBuilder&) = default;
-    HAREFLOW_EXPORT ConsumerBuilder& operator=(ConsumerBuilder&&) = default;
+    ConsumerBuilder(const ConsumerBuilder&) = default;
+    ConsumerBuilder(ConsumerBuilder&&)      = default;
+    ~ConsumerBuilder()                      = default;
+    ConsumerBuilder& operator=(const ConsumerBuilder&) = default;
+    ConsumerBuilder& operator=(ConsumerBuilder&&) = default;
 
-    HAREFLOW_EXPORT ConsumerBuilder& name(std::string name) &;
-    HAREFLOW_EXPORT ConsumerBuilder& stream(std::string stream) &;
-    HAREFLOW_EXPORT ConsumerBuilder& offset_specification(OffsetSpecification offset_specification) &;
-    HAREFLOW_EXPORT ConsumerBuilder& manual_cursor_management() &;
-    HAREFLOW_EXPORT ConsumerBuilder& automatic_cursor_management(AutomaticCursorConfiguration cursor_configuration) &;
-    HAREFLOW_EXPORT ConsumerBuilder& manual_credit_management() &;
-    HAREFLOW_EXPORT ConsumerBuilder& automatic_credit_management() &;
-    HAREFLOW_EXPORT ConsumerBuilder& message_handler(MessageHandler message_handler) &;
+    ConsumerBuilder& name(std::string name) &;
+    ConsumerBuilder& stream(std::string stream) &;
+    ConsumerBuilder& offset_specification(OffsetSpecification offset_specification) &;
+    ConsumerBuilder& manual_cursor_management() &;
+    ConsumerBuilder& automatic_cursor_management(AutomaticCursorConfiguration cursor_configuration) &;
+    ConsumerBuilder& manual_credit_management() &;
+    ConsumerBuilder& automatic_credit_management() &;
+    ConsumerBuilder& message_handler(MessageHandler message_handler) &;
 
-    HAREFLOW_EXPORT ConsumerBuilder name(std::string name) &&;
-    HAREFLOW_EXPORT ConsumerBuilder stream(std::string stream) &&;
-    HAREFLOW_EXPORT ConsumerBuilder offset_specification(OffsetSpecification offset_specification) &&;
-    HAREFLOW_EXPORT ConsumerBuilder manual_cursor_management() &&;
-    HAREFLOW_EXPORT ConsumerBuilder automatic_cursor_management(AutomaticCursorConfiguration cursor_configuration) &&;
-    HAREFLOW_EXPORT ConsumerBuilder manual_credit_management() &&;
-    HAREFLOW_EXPORT ConsumerBuilder automatic_credit_management() &&;
-    HAREFLOW_EXPORT ConsumerBuilder message_handler(MessageHandler message_handler) &&;
+    ConsumerBuilder name(std::string name) &&;
+    ConsumerBuilder stream(std::string stream) &&;
+    ConsumerBuilder offset_specification(OffsetSpecification offset_specification) &&;
+    ConsumerBuilder manual_cursor_management() &&;
+    ConsumerBuilder automatic_cursor_management(AutomaticCursorConfiguration cursor_configuration) &&;
+    ConsumerBuilder manual_credit_management() &&;
+    ConsumerBuilder automatic_credit_management() &&;
+    ConsumerBuilder message_handler(MessageHandler message_handler) &&;
 
-    HAREFLOW_EXPORT ConsumerPtr build() const&;
-    HAREFLOW_EXPORT ConsumerPtr build() &&;
+    ConsumerPtr build() const&;
+    ConsumerPtr build() &&;
 
 private:
     detail::InternalEnvironmentPtr              m_environment          = {};

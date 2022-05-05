@@ -39,8 +39,8 @@
                 "gtest"
             ]
         },
-        "benchmarks": {
-            "description": "Benchmarks suite",
+        "integration": {
+            "description": "Integration tests",
             "dependencies": [
                 "gtest"
             ]

@@ -16,8 +16,8 @@ namespace hareflow::detail {
 class BackgroundScheduler
 {
 public:
-    BackgroundScheduler(std::uint32_t max_nb_threads = 0, std::chrono::milliseconds max_idle_time = std::chrono::seconds(5));
-    ~BackgroundScheduler();
+    HAREFLOW_EXPORT BackgroundScheduler(std::uint32_t max_nb_threads = 0, std::chrono::milliseconds max_idle_time = std::chrono::seconds(5));
+    HAREFLOW_EXPORT ~BackgroundScheduler();
 
     std::future<void> run_task(std::function<void()> task);
 

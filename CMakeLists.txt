@@ -6,8 +6,8 @@ cmake_minimum_required(VERSION 3.20 FATAL_ERROR)
 
 # In case `vcpkg` is used
 list(APPEND VCPKG_FEATURE_FLAGS "versions")
-if(BUILD_BENCHMARKS)
-    list(APPEND VCPKG_MANIFEST_FEATURES "benchmarks")
+if(BUILD_INTEGRATION)
+    list(APPEND VCPKG_MANIFEST_FEATURES "integration")
 endif()
 if(BUILD_TESTS)
     list(APPEND VCPKG_MANIFEST_FEATURES "tests")
@@ -30,7 +30,7 @@ enable_testing()
 set_if_not_defined(CMAKE_GTEST_DISCOVER_TESTS_DISCOVERY_MODE "PRE_TEST") # TODO: Remove once qpid-proton RPATH is fixed
 
 option(BUILD_TESTS "Build tests" OFF)
-option(BUILD_BENCHMARKS "Build benchmarks" OFF)
+option(BUILD_INTEGRATION "Build integration tests" OFF)
 option(BUILD_WARNINGS "Build with hareflow's warnings setting" ON)
 
 include(GNUInstallDirs)
@@ -64,8 +64,8 @@ endif()
 
 add_subdirectory(src)
 
-if(BUILD_BENCHMARKS)
-    add_subdirectory(benchmarks)
+if(BUILD_INTEGRATION)
+    add_subdirectory(integration)
 endif()
 if(BUILD_TESTS)
     add_subdirectory(tests)

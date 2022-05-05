@@ -77,6 +77,16 @@ TEST_F(ProducerTest, NamedPublisher)
     producer->flush();
 }
 
+TEST_F(ProducerTest, MessageTooBig)
+{
+    EXPECT_CALL(m_client_mock, max_frame_size()).WillOnce(testing::Return(100));
+
+    hareflow::ProducerPtr producer = producer_builder().build();
+    auto                  message  = hareflow::MessageBuilder().body(std::vector<std::uint8_t>(101)).build();
+
+    EXPECT_THAT([&]() { producer->send(message, [](auto...) {}); }, testing::Throws<hareflow::InvalidInputException>());
+}
+
 TEST_F(ProducerTest, PeriodicFlush)
 {
     std::promise<void> published;

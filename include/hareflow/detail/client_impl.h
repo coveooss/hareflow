@@ -1,4 +1,4 @@
-﻿#pragma once
+#pragma once
 
 #include "hareflow/client.h"
 #include "hareflow/client_parameters.h"
@@ -7,7 +7,7 @@
 
 namespace hareflow::detail {
 
-class InternalClient : public Client
+class HAREFLOW_EXPORT InternalClient : public Client
 {
 public:
     virtual ~InternalClient() = default;

@@ -16,7 +16,7 @@
 
 namespace hareflow::detail {
 
-class InternalEnvironment : public Environment
+class HAREFLOW_EXPORT InternalEnvironment : public Environment
 {
 public:
     virtual ~InternalEnvironment() = default;

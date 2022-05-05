@@ -13,7 +13,7 @@
 
 namespace hareflow::detail {
 
-class InternalConsumer : public Consumer
+class HAREFLOW_EXPORT InternalConsumer : public Consumer
 {
 public:
     virtual ~InternalConsumer() = default;

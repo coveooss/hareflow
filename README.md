@@ -12,7 +12,7 @@ Assuming that [vcpkg](https://github.com/microsoft/vcpkg) is used,
 ```shell
 git clone https://github.com/coveooss/hareflow
 cmake \
-    [-DBUILD_BENCHMARKS=TRUE] \
+    [-DBUILD_INTEGRATION=TRUE] \
     [-DBUILD_TESTS=TRUE] \
     -DCMAKE_TOOLCHAIN_FILE=<VCPKG_ROOT>/scripts/buildsystems/vcpkg.cmake \
     -B build -S hareflow
