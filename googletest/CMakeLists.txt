@@ -1,3 +1,4 @@
+# Based on https://github.com/google/googletest/blob/main/docs/quickstart-cmake.md
 set(CMAKE_CXX_STANDARD 17) # Hareflow requires string_view in its tests
 
 include(FetchContent)
