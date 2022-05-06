@@ -6,12 +6,6 @@ cmake_minimum_required(VERSION 3.20 FATAL_ERROR)
 
 # In case `vcpkg` is used
 list(APPEND VCPKG_FEATURE_FLAGS "versions")
-if(BUILD_INTEGRATION)
-    list(APPEND VCPKG_MANIFEST_FEATURES "integration")
-endif()
-if(BUILD_TESTS)
-    list(APPEND VCPKG_MANIFEST_FEATURES "tests")
-endif()
 
 # Sets the `variable` to `value` if the `variable` is not already defined
 function(set_if_not_defined variable value)
@@ -64,6 +58,9 @@ endif()
 
 add_subdirectory(src)
 
+if(BUILD_INTEGRATION OR BUILD_TESTS)
+    add_subdirectory(googletest)
+endif()
 if(BUILD_INTEGRATION)
     add_subdirectory(integration)
 endif()
