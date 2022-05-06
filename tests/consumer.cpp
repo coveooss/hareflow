@@ -70,7 +70,7 @@ TEST_F(ConsumerTest, PartiallyConsumedChunk)
     int                   consumed = 0;
     hareflow::ConsumerPtr consumer = consumer_builder()
                                          .offset_specification(hareflow::OffsetSpecification::offset(consume_offset))
-                                         .message_handler([&](auto& context, auto message) {
+                                         .message_handler([&](auto& context, auto /*message*/) {
                                              EXPECT_GE(context.offset, consume_offset);
                                              ++consumed;
                                          })
@@ -117,7 +117,7 @@ TEST_F(ConsumerTest, AutoCursorFrequency)
                                          .message_handler([&](auto...) { ++consumed; })
                                          .build();
 
-    for (int i = 0; i < to_consume; ++i) {
+    for (unsigned i = 0; i < to_consume; ++i) {
         client_parameters.get_message_listener()(0, 0, i, hareflow::MessageBuilder().body("hello").build());
     }
 
