@@ -101,7 +101,7 @@ TEST_F(ConsumerTest, NamedConsumerFallbackOffset)
 
 TEST_F(ConsumerTest, AutoCursorFrequency)
 {
-    static constexpr std::uint64_t to_consume = 5;
+    static constexpr int to_consume = 5;
 
     std::promise<void>         done;
     hareflow::ClientParameters client_parameters;
@@ -117,7 +117,7 @@ TEST_F(ConsumerTest, AutoCursorFrequency)
                                          .message_handler([&](auto...) { ++consumed; })
                                          .build();
 
-    for (unsigned i = 0; i < to_consume; ++i) {
+    for (int i = 0; i < to_consume; ++i) {
         client_parameters.get_message_listener()(0, 0, i, hareflow::MessageBuilder().body("hello").build());
     }
 

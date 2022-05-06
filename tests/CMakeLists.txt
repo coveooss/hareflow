@@ -9,6 +9,8 @@ target_link_libraries(hareflow_tests
         hareflow
 )
 
+target_compile_definitions(hareflow_tests PRIVATE $<$<PLATFORM_ID:Windows>:_WIN32_WINNT=0x603>)
+
 target_sources(hareflow_tests
     PRIVATE
         ${CMAKE_CURRENT_LIST_DIR}/consumer.cpp

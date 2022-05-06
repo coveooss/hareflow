@@ -21,7 +21,6 @@ endif()
 
 project(hareflow LANGUAGES CXX)
 enable_testing()
-set_if_not_defined(CMAKE_GTEST_DISCOVER_TESTS_DISCOVERY_MODE "PRE_TEST") # TODO: Remove once qpid-proton RPATH is fixed
 
 option(BUILD_TESTS "Build tests" OFF)
 option(BUILD_INTEGRATION "Build integration tests" OFF)
