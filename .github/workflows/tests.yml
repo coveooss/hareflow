@@ -12,25 +12,19 @@ jobs:
       matrix:
         config:
           - {
-              name: "Windows x64 (msvc)",
+              key: "windows-msvc",
               os: windows-latest,
-              compiler: "cl.exe",
-              extension: ".exe",
-              prefix: "Debug/"
+              compiler: "cl.exe"
            }
           - {
-              name: "Linux x64 (gcc)",
+              key: "linux-gcc",
               os: ubuntu-20.04,
-              compiler: "/usr/bin/g++",
-              extension: "",
-              prefix: ""
+              compiler: "/usr/bin/g++"
            }
           - {
-              name: "Linux x64 (clang)",
+              key: "linux-clang",
               os: ubuntu-20.04,
-              compiler: "/usr/bin/clang++",
-              extension: "",
-              prefix: ""
+              compiler: "/usr/bin/clang++"
            }
     runs-on: ${{ matrix.config.os }}
 
@@ -41,17 +35,17 @@ jobs:
           fetch-depth: 0
       - uses: ilammy/msvc-dev-cmd@d39d8f7626e5667b00caa504eaefd7c24c9ba49d
       - name: Create cache folder
+        shell: bash
         run: mkdir .cache
-        continue-on-error: true
       - name: Enable vcpkg cache
         uses: actions/cache@v2
         with:
           path: .cache
-          key: ${{ runner.os }}-hareflow
+          key: ${{ matrix.config.key }}-hareflow
       - name: Install apt dependencies
         if: matrix.config.os == 'ubuntu-20.04'
         run: |
-          sudo apt-get update && sudo apt-get install -y clang build-essential libssl-dev curl
+          sudo apt-get update && sudo apt-get install -y clang build-essential libssl-dev curl ninja-build
       - name: Build Tests
         env:
           CXX: ${{ matrix.config.compiler }}
@@ -59,7 +53,7 @@ jobs:
           VCPKG_DEFAULT_BINARY_CACHE: ${{ github.workspace }}/.cache
         shell: bash
         run: |
-          cmake -B build -S . -DBUILD_TESTS=ON -DCMAKE_BUILD_TYPE=Debug
+          cmake -B build -S . -G Ninja -DBUILD_TESTS=ON -DCMAKE_BUILD_TYPE=Debug
           cmake --build build/
       - name: Run Tests
         shell: bash
