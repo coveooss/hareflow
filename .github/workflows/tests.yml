@@ -40,12 +40,13 @@ jobs:
           submodules: recursive
           fetch-depth: 0
       - uses: ilammy/msvc-dev-cmd@d39d8f7626e5667b00caa504eaefd7c24c9ba49d
+      - name: Create cache folder
+        run: mkdir .cache
+        continue-on-error: true
       - name: Enable vcpkg cache
         uses: actions/cache@v2
         with:
-          path: |
-            ~/.cache
-            ./vcpkg_installed
+          path: .cache
           key: ${{ runner.os }}-hareflow
       - name: Install apt dependencies
         if: matrix.config.os == 'ubuntu-20.04'
@@ -54,10 +55,11 @@ jobs:
       - name: Build Tests
         env:
           CXX: ${{ matrix.config.compiler }}
-          CMAKE_TOOLCHAIN_FILE: ./vcpkg/scripts/buildsystems/vcpkg.cmake
+          CMAKE_TOOLCHAIN_FILE: ${{ github.workspace }}/vcpkg/scripts/buildsystems/vcpkg.cmake
+          VCPKG_DEFAULT_BINARY_CACHE: ${{ github.workspace }}/.cache
         shell: bash
         run: |
-          cmake -B build -S . -DBUILD_TESTS=ON -DCMAKE_EXPORT_COMPILE_COMMANDS=1 -D CMAKE_BUILD_TYPE=Debug
+          cmake -B build -S . -DBUILD_TESTS=ON -DCMAKE_BUILD_TYPE=Debug
           cmake --build build/
       - name: Run Tests
         shell: bash
