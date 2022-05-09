@@ -7,26 +7,21 @@ on:
     types: [opened, synchronize]
 
 jobs:
-  unit:
+  unit-tests:
     strategy:
       matrix:
-        config:
-          - {
-              key: "windows-msvc",
-              os: windows-latest,
-              compiler: "cl.exe"
-           }
-          - {
-              key: "linux-gcc",
-              os: ubuntu-20.04,
-              compiler: "/usr/bin/g++"
-           }
-          - {
-              key: "linux-clang",
-              os: ubuntu-20.04,
-              compiler: "/usr/bin/clang++"
-           }
-    runs-on: ${{ matrix.config.os }}
+        key: [windows-msvc, linux-gcc, linux-clang]
+        include:
+          - key: windows-msvc
+            os: windows-latest
+            compiler: cl.exe
+          - key: linux-gcc
+            os: ubuntu-20.04
+            compiler: g++
+          - key: linux-clang
+            os: ubuntu-20.04
+            compiler: clang++
+    runs-on: ${{ matrix.os }}
 
     steps:
       - uses: actions/checkout@v2
@@ -41,14 +36,14 @@ jobs:
         uses: actions/cache@v2
         with:
           path: .cache
-          key: ${{ matrix.config.key }}-hareflow
+          key: vcpkg-${{ matrix.key }}
       - name: Install apt dependencies
-        if: matrix.config.os == 'ubuntu-20.04'
+        if: matrix.os == 'ubuntu-20.04'
         run: |
           sudo apt-get update && sudo apt-get install -y clang build-essential libssl-dev curl ninja-build
       - name: Build Tests
         env:
-          CXX: ${{ matrix.config.compiler }}
+          CXX: ${{ matrix.compiler }}
           CMAKE_TOOLCHAIN_FILE: ${{ github.workspace }}/vcpkg/scripts/buildsystems/vcpkg.cmake
           VCPKG_DEFAULT_BINARY_CACHE: ${{ github.workspace }}/.cache
         shell: bash
