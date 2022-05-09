@@ -235,8 +235,9 @@ void BinaryBuffer::write_long(std::int64_t val)
 
 void BinaryBuffer::write_string(std::string_view string)
 {
-    if (string.size() > std::numeric_limits<std::int16_t>::max()) {
-        throw InvalidInputException(fmt::format("Maximum string size exceeded ({})", std::numeric_limits<std::int16_t>::max()));
+    static constexpr std::size_t max_as_size_t = std::numeric_limits<std::int16_t>::max();
+    if (string.size() > max_as_size_t) {
+        throw InvalidInputException(fmt::format("Maximum string size exceeded ({})", max_as_size_t));
     }
     std::int16_t length = static_cast<std::int16_t>(string.size());
     write_short(length);
@@ -248,8 +249,9 @@ void BinaryBuffer::write_string(std::string_view string)
 
 void BinaryBuffer::write_blob(boost::asio::const_buffer blob)
 {
-    if (blob.size() > std::numeric_limits<std::int32_t>::max()) {
-        throw InvalidInputException(fmt::format("Maximum blob size exceeded ({})", std::numeric_limits<std::int32_t>::max()));
+    static constexpr std::size_t max_as_size_t = std::numeric_limits<std::int32_t>::max();
+    if (blob.size() > max_as_size_t) {
+        throw InvalidInputException(fmt::format("Maximum blob size exceeded ({})", max_as_size_t));
     }
     std::int32_t length = static_cast<std::int32_t>(blob.size());
     write_int(length);
