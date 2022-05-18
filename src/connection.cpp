@@ -153,10 +153,11 @@ Connection::Connection(std::string host, std::uint16_t port, bool use_ssl, bool 
 {
     if (use_ssl) {
         ssl::context ssl_context(ssl::context::tls);
-        ssl_context.set_options(ssl::context::no_tlsv1 | ssl::context::no_tlsv1_1);
+        ssl_context.set_options(ssl::context::default_workarounds | ssl::context::no_tlsv1 | ssl::context::no_tlsv1_1);
         if (verify_host) {
+            ssl_context.set_default_verify_paths();
             ssl_context.set_verify_mode(ssl::verify_peer);
-            ssl_context.set_verify_callback(ssl::host_name_verification(m_host));
+            ssl_context.set_verify_callback(ssl::rfc2818_verification(m_host));
         }
         m_ssl_stream = std::make_unique<ssl_stream>(m_socket, ssl_context);
     }
