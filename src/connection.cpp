@@ -29,8 +29,8 @@ void Connection::connect()
         io::connect(m_socket, endpoints);
         m_socket.set_option(tcp::no_delay(true));
         m_socket.set_option(tcp_socket::keep_alive(true));
-        if (m_ssl_stream) {
-            m_ssl_stream->handshake(ssl_stream::client);
+        if (m_ssl) {
+            m_ssl->stream().handshake(ssl_stream::client);
         }
         m_connection_failed = false;
     } catch (const boost::system::system_error& e) {
@@ -135,7 +135,7 @@ Connection::Connection(std::string host, std::uint16_t port, bool use_ssl, bool 
  : m_io_context(IoContextHolder::get()),
    m_strand(m_io_context),
    m_socket(m_io_context),
-   m_ssl_stream(),
+   m_ssl(),
    m_host(std::move(host)),
    m_port(port),
    m_connection_failed(true),
@@ -152,14 +152,7 @@ Connection::Connection(std::string host, std::uint16_t port, bool use_ssl, bool 
    m_buffer_pool()
 {
     if (use_ssl) {
-        ssl::context ssl_context(ssl::context::tls);
-        ssl_context.set_options(ssl::context::default_workarounds | ssl::context::no_tlsv1 | ssl::context::no_tlsv1_1);
-        if (verify_host) {
-            ssl_context.set_default_verify_paths();
-            ssl_context.set_verify_mode(ssl::verify_peer);
-            ssl_context.set_verify_callback(ssl::rfc2818_verification(m_host));
-        }
-        m_ssl_stream = std::make_unique<ssl_stream>(m_socket, ssl_context);
+        m_ssl = SslAdapter(m_socket, m_host, verify_host);
     }
 }
 
@@ -190,8 +183,8 @@ void Connection::send_outbox()
         buffers.emplace_back(entry->asio_buffer());
     }
 
-    if (m_ssl_stream) {
-        io::async_write(*m_ssl_stream, buffers, io::bind_executor(m_strand, callback));
+    if (m_ssl) {
+        io::async_write(m_ssl->stream(), buffers, io::bind_executor(m_strand, callback));
     } else {
         io::async_write(m_socket, buffers, io::bind_executor(m_strand, callback));
     }
@@ -237,15 +230,15 @@ void Connection::start_async_read_chain()
             start_async_read_chain();
         };
 
-        if (m_ssl_stream) {
-            io::async_read(*m_ssl_stream, buffer->as_asio_buffer() + sizeof(std::uint32_t), io::bind_executor(m_strand, post_to_inbox));
+        if (m_ssl) {
+            io::async_read(m_ssl->stream(), buffer->as_asio_buffer() + sizeof(std::uint32_t), io::bind_executor(m_strand, post_to_inbox));
         } else {
             io::async_read(m_socket, buffer->as_asio_buffer() + sizeof(std::uint32_t), io::bind_executor(m_strand, post_to_inbox));
         }
     };
 
-    if (m_ssl_stream) {
-        io::async_read(*m_ssl_stream, buffer->as_asio_buffer(), io::bind_executor(m_strand, callback));
+    if (m_ssl) {
+        io::async_read(m_ssl->stream(), buffer->as_asio_buffer(), io::bind_executor(m_strand, callback));
     } else {
         io::async_read(m_socket, buffer->as_asio_buffer(), io::bind_executor(m_strand, callback));
     }
@@ -275,6 +268,22 @@ void Connection::start_reader_idle_monitoring()
             m_reader_idle_handler();
         }
     }));
+}
+
+Connection::SslAdapter::SslAdapter(tcp_socket& wrapped_socket, const std::string& host, bool verify_host) : m_context(ssl::context::tls_client), m_stream()
+{
+    m_context.set_options(ssl_context::default_workarounds | ssl_context::no_tlsv1 | ssl_context::no_tlsv1_1);
+    if (verify_host) {
+        m_context.set_default_verify_paths();
+        m_context.set_verify_mode(ssl::verify_peer);
+        m_context.set_verify_callback(ssl::rfc2818_verification(host));
+    }
+    m_stream = std::make_unique<ssl_stream>(wrapped_socket, m_context);
+}
+
+Connection::ssl_stream& Connection::SslAdapter::stream()
+{
+    return *m_stream;
 }
 
 }  // namespace hareflow::detail

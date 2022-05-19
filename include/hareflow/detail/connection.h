@@ -3,6 +3,7 @@
 #include <chrono>
 #include <deque>
 #include <memory>
+#include <optional>
 
 #ifdef _WIN32
 #    pragma warning(push)
@@ -36,8 +37,22 @@ public:
     std::future<BinaryBuffer> read();
 
 private:
-    using tcp_socket = boost::asio::ip::tcp::socket;
-    using ssl_stream = boost::asio::ssl::stream<tcp_socket&>;
+    using tcp_socket  = boost::asio::ip::tcp::socket;
+    using ssl_context = boost::asio::ssl::context;
+    using ssl_stream  = boost::asio::ssl::stream<tcp_socket&>;
+
+    class SslAdapter
+    {
+    public:
+        SslAdapter(tcp_socket& wrapped_socket, const std::string& host, bool verify_host);
+
+        ssl_stream& stream();
+
+    private:
+        ssl_context                 m_context;
+        std::unique_ptr<ssl_stream> m_stream;
+    };
+
     class OutboxEntry
     {
     public:
@@ -84,7 +99,7 @@ private:
     boost::asio::io_context&        m_io_context;
     boost::asio::io_context::strand m_strand;
     tcp_socket                      m_socket;
-    std::unique_ptr<ssl_stream>     m_ssl_stream;
+    std::optional<SslAdapter>       m_ssl;
     std::string                     m_host;
     std::uint16_t                   m_port;
     bool                            m_connection_failed;

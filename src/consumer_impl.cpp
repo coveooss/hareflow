@@ -186,8 +186,13 @@ void ConsumerImpl::internal_stop()
 void ConsumerImpl::internal_store_offset(std::uint64_t offset)
 {
     if (!m_name.empty() && m_client != nullptr) {
-        m_client->store_offset(m_name, m_stream, offset);
-        m_messages_since_last_persist = 0;
+        try {
+            m_client->store_offset(m_name, m_stream, offset);
+            m_messages_since_last_persist = 0;
+        } catch (const StreamException& e) {
+            Logger::warn("Failed to persist cursor: {}", e.what());
+        }
+
         if (m_persist_cursor_task.valid()) {
             m_persist_cursor_task.schedule_after(m_auto_cursor_config->force_persist_delay());
         }
