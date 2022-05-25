@@ -36,7 +36,7 @@ void Logger::set_level(LoggingLevel level)
 
 void Logger::disable()
 {
-    s_logger.set_handler({});
+    s_logger.set_handler(nullptr);
 }
 
 void Logger::to_stdout()

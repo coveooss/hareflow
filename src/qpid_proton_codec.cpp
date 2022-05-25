@@ -1,9 +1,19 @@
 #include "hareflow/qpid_proton_codec.h"
 
 #include <fmt/core.h>
+
+#ifdef _WIN32
+#    pragma warning(push)
+#    pragma warning(disable : 4702)
+#endif
+
 #include <proton/error.hpp>
 #include <proton/message.hpp>
 #include <proton/types.hpp>
+
+#ifdef _WIN32
+#    pragma warning(pop)
+#endif
 
 #include "hareflow/exceptions.h"
 #include "hareflow/message_builder.h"
