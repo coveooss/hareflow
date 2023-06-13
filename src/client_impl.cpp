@@ -1,5 +1,6 @@
 #include "hareflow/detail/client_impl.h"
 
+#include <thread>
 #include <fmt/core.h>
 
 #include "hareflow/codec.h"
