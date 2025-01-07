@@ -16,6 +16,9 @@ cmake --install build --prefix staging
 cpack --config build/CPackConfig.cmake
 ```
 
+Take note that `Hareflow` relies on the `boost-asio` library, which requires the `/etc/services` file to operate properly on Linux systems.
+In Debian-based distributions, this file is included in the `netbase` package, which is typically installed via the `apt` package manager.
+
 ### vcpkg
 
 If you want to use [microsoft/vcpkg](https://github.com/microsoft/vcpkg) as the package manager, set the environment variable `CMAKE_TOOLCHAIN_FILE` to `<VCPKG_ROOT>/scripts/buildsystems/vcpkg.cmake` where `<VCPKG_ROOT>` is the path of the vcpkg repository on your machine.
