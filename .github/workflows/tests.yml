@@ -33,7 +33,7 @@ jobs:
         shell: bash
         run: mkdir .cache
       - name: Enable vcpkg cache
-        uses: actions/cache@v2
+        uses: actions/cache@v4
         with:
           path: .cache
           key: vcpkg-${{ matrix.key }}-${{ hashFiles('**/vcpkg.json', '**/vcpkg-configuration.json') }}

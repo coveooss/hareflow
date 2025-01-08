@@ -5,38 +5,23 @@
     "homepage": "https://github.com/coveooss/hareflow",
     "license": "Apache-2.0",
     "dependencies": [
-        {
-            "name": "fmt",
-            "version>=": "8.0.1"
-        },
-        {
-            "name": "qpid-proton",
-            "version>=": "0.37.0#2"
-        },
-        {
-            "name": "boost-endian",
-            "version>=": "1.78.0"
-        },
+        { "name": "boost-endian" },
+        { "name": "fmt" },
+        { "name": "openssl" },
+        { "name": "qpid-proton" },
+
         {
             "name": "boost-asio",
-            "version>=": "1.78.0",
-            "features": [
-                "ssl"
-            ]
+            "features": [ "ssl" ]
         },
-        {
-            "name": "openssl",
-            "version>=": "3.0.2#3"
-        },
+
         {
             "name": "vcpkg-cmake",
-            "host": true,
-            "version>=": "2021-02-28"
+            "host": true
         },
         {
             "name": "vcpkg-cmake-config",
-            "host": true,
-            "version>=": "2021-02-26"
+            "host": true
         }
     ]
 }
