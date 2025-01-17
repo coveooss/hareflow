@@ -276,7 +276,11 @@ Connection::SslAdapter::SslAdapter(tcp_socket& wrapped_socket, const std::string
     if (verify_host) {
         m_context.set_default_verify_paths();
         m_context.set_verify_mode(ssl::verify_peer);
+#if BOOST_VERSION >= 108700
+        m_context.set_verify_callback(ssl::host_name_verification(host));
+#else
         m_context.set_verify_callback(ssl::rfc2818_verification(host));
+#endif
     }
     m_stream = std::make_unique<ssl_stream>(wrapped_socket, m_context);
 }
