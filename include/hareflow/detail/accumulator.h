@@ -6,6 +6,7 @@
 #include <chrono>
 #include <condition_variable>
 #include <vector>
+#include <stdexcept>
 
 #include "hareflow/detail/internal_types.h"
 
