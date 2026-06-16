@@ -22,7 +22,7 @@ const std::uint16_t MAX_REFERENCE_LENGTH = 256;
 
 const hareflow::Properties DEFAULT_CLIENT_PROPERTIES = {{"product", "Hareflow: A RabbitMQ Stream C++ Client"},
                                                         {"platform", "C++"},
-                                                        {"version", "0.1.0"},
+                                                        {"version", "0.3.0"},
                                                         {"license", "Apache License Version 2.0"},
                                                         {"source", "https://github.com/coveooss/hareflow"}};
 
