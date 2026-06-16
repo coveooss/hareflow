@@ -2,7 +2,7 @@
 
 #include <map>
 
-#include <fmt/core.h>
+#include <fmt/format.h>
 
 #include "hareflow/exceptions.h"
 #include "hareflow/detail/client_impl.h"

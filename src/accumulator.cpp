@@ -1,6 +1,6 @@
 #include "hareflow/detail/accumulator.h"
 
-#include <fmt/core.h>
+#include <fmt/format.h>
 
 #include "hareflow/codec.h"
 #include "hareflow/detail/commands.h"

@@ -1,6 +1,6 @@
 #include "hareflow/qpid_proton_codec.h"
 
-#include <fmt/core.h>
+#include <fmt/format.h>
 
 #ifdef _WIN32
 #    pragma warning(push)

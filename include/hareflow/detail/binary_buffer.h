@@ -6,7 +6,7 @@
 #include <string>
 
 #include <boost/asio.hpp>
-#include <fmt/core.h>
+#include <fmt/format.h>
 
 #include "hareflow/exceptions.h"
 #include "hareflow/types.h"

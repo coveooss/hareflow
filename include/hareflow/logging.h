@@ -7,7 +7,7 @@
 #include <mutex>
 #include <utility>
 
-#include <fmt/core.h>
+#include <fmt/format.h>
 
 #include "hareflow/export.h"
 

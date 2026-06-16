@@ -1,7 +1,7 @@
 #include "hareflow/detail/client_impl.h"
 
 #include <thread>
-#include <fmt/core.h>
+#include <fmt/format.h>
 
 #include "hareflow/codec.h"
 #include "hareflow/logging.h"

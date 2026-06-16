@@ -1,6 +1,6 @@
 #include "hareflow/exceptions.h"
 
-#include <fmt/core.h>
+#include <fmt/format.h>
 
 namespace {
 
