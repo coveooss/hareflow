@@ -19,7 +19,7 @@ Accumulator::Accumulator(std::uint32_t capacity, CodecPtr codec)
     m_pending.reserve(m_capacity);
 }
 
-bool Accumulator::add(std::uint64_t publishing_id, MessagePtr message, ConfirmationHandler confirmation_handler)
+bool Accumulator::add(std::uint64_t publishing_id, MessagePtr message, ConfirmationHandler confirmation_handler, Semaphore::Permit enqueue_permit)
 {
     std::vector<std::uint8_t> encoded = m_codec->encode(message);
 
@@ -33,7 +33,8 @@ bool Accumulator::add(std::uint64_t publishing_id, MessagePtr message, Confirmat
                                                                              std::chrono::steady_clock::now(),
                                                                              std::move(message),
                                                                              std::move(encoded),
-                                                                             std::move(confirmation_handler));
+                                                                             std::move(confirmation_handler),
+                                                                             std::move(enqueue_permit));
     m_space_available.wait(lock, [this] { return m_pending.size() < m_capacity || m_destroyed; });
     if (m_destroyed) {
         throw AccumulatorDestroyedException{"Accumulator was destroyed"};

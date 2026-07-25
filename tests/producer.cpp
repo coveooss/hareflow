@@ -81,10 +81,14 @@ TEST_F(ProducerTest, MessageTooBig)
 {
     EXPECT_CALL(m_client_mock, max_frame_size()).WillOnce(testing::Return(100));
 
-    hareflow::ProducerPtr producer = producer_builder().build();
+    hareflow::ProducerPtr producer = producer_builder().max_unconfirmed(1).enqueue_timeout(std::chrono::seconds{1}).build();
     auto                  message  = hareflow::MessageBuilder().body(std::vector<std::uint8_t>(101)).build();
 
     EXPECT_THAT([&]() { producer->send(message, [](auto...) {}); }, testing::Throws<hareflow::InvalidInputException>());
+
+    EXPECT_CALL(m_client_mock, publish_encoded(testing::_, testing::SizeIs(1)));
+    EXPECT_NO_THROW(producer->send(hareflow::MessageBuilder{}.body("hello").build(), [](auto...) {}));
+    producer->flush();
 }
 
 TEST_F(ProducerTest, PeriodicFlush)
@@ -151,8 +155,9 @@ TEST_F(ProducerTest, EnqueueTimeout)
 
 TEST_F(ProducerTest, ConfirmTimeout)
 {
-    hareflow::ProducerPtr producer = producer_builder().confirm_timeout(std::chrono::milliseconds{1}).build();
-    EXPECT_CALL(m_client_mock, publish_encoded(testing::_, testing::SizeIs(1)));
+    hareflow::ProducerPtr producer =
+        producer_builder().confirm_timeout(std::chrono::milliseconds{1}).max_unconfirmed(1).enqueue_timeout(std::chrono::seconds{1}).build();
+    EXPECT_CALL(m_client_mock, publish_encoded(testing::_, testing::SizeIs(1))).Times(2);
 
     std::promise<void> invoked;
     producer->send(hareflow::MessageBuilder{}.body("hello").build(), [&](auto& confirmation_status) {
@@ -163,6 +168,9 @@ TEST_F(ProducerTest, ConfirmTimeout)
     producer->flush();
 
     EXPECT_EQ(invoked.get_future().wait_for(std::chrono::seconds{1}), std::future_status::ready);
+
+    EXPECT_NO_THROW(producer->send(hareflow::MessageBuilder{}.body("hello").build(), [](auto...) {}));
+    producer->flush();
 }
 
 TEST_F(ProducerTest, StopFailsUnconfirmed)

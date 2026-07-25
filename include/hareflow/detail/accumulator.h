@@ -9,6 +9,7 @@
 #include <vector>
 
 #include "hareflow/detail/internal_types.h"
+#include "hareflow/detail/semaphore.h"
 
 namespace hareflow::detail {
 
@@ -17,12 +18,14 @@ struct AccumulatedMessage {
                        std::chrono::steady_clock::time_point publish_time,
                        MessagePtr                            message,
                        std::vector<std::uint8_t>             encoded_message,
-                       ConfirmationHandler                   confirmation_handler)
+                       ConfirmationHandler                   confirmation_handler,
+                       Semaphore::Permit                     enqueue_permit)
      : publishing_id(publishing_id),
        publish_time(publish_time),
        message(std::move(message)),
        encoded_message(std::move(encoded_message)),
-       confirmation_handler(std::move(confirmation_handler))
+       confirmation_handler(std::move(confirmation_handler)),
+       enqueue_permit(std::move(enqueue_permit))
     {
     }
 
@@ -31,6 +34,7 @@ struct AccumulatedMessage {
     MessagePtr                            message;
     const std::vector<std::uint8_t>       encoded_message;
     ConfirmationHandler                   confirmation_handler;
+    Semaphore::Permit                     enqueue_permit;
 };
 
 class AccumulatorDestroyedException : public std::runtime_error
@@ -43,7 +47,7 @@ class Accumulator
 public:
     Accumulator(std::uint32_t capacity, CodecPtr codec);
 
-    bool                               add(std::uint64_t publishing_id, MessagePtr message, ConfirmationHandler confirmation_handler);
+    bool add(std::uint64_t publishing_id, MessagePtr message, ConfirmationHandler confirmation_handler, Semaphore::Permit enqueue_permit);
     std::vector<AccumulatedMessagePtr> extract_all();
 
     void set_max_frame_size(std::uint32_t max_frame_size);

@@ -95,13 +95,16 @@ void ProducerImpl::send(std::uint64_t publishing_id, MessagePtr message, Confirm
     }
 
     try {
+        Semaphore::Permit enqueue_permit;
         if (m_enqueue_timeout == std::chrono::milliseconds::zero()) {
-            m_enqueue_semaphore.acquire();
-        } else if (!m_enqueue_semaphore.try_acquire_for(m_enqueue_timeout)) {
+            enqueue_permit = m_enqueue_semaphore.acquire();
+        } else if (auto permit = m_enqueue_semaphore.try_acquire_for(m_enqueue_timeout)) {
+            enqueue_permit = std::move(*permit);
+        } else {
             throw ProducerException{ProducerErrorCode::MessageEnqueuingFailed, "Enqueueing message timeout"};
         }
 
-        if (m_accumulator->add(publishing_id, std::move(message), std::move(confirmation_handler))) {
+        if (m_accumulator->add(publishing_id, std::move(message), std::move(confirmation_handler), std::move(enqueue_permit))) {
             publish_batch();
         }
     } catch (const SemaphoreDestroyedException&) {
@@ -244,7 +247,6 @@ void ProducerImpl::handle_publish_confirm(std::uint64_t publishing_id)
     if (message != nullptr && message->confirmation_handler != nullptr) {
         message->confirmation_handler(ConfirmationStatus{publishing_id, message->message, true, static_cast<std::uint16_t>(ResponseCode::Ok)});
     }
-    m_enqueue_semaphore.release();
 }
 
 void ProducerImpl::handle_publish_error(std::uint64_t publishing_id, ResponseCode error_code)
@@ -260,7 +262,6 @@ void ProducerImpl::handle_publish_error(std::uint64_t publishing_id, ResponseCod
     if (message != nullptr && message->confirmation_handler != nullptr) {
         message->confirmation_handler(ConfirmationStatus{publishing_id, message->message, false, static_cast<std::uint16_t>(error_code)});
     }
-    m_enqueue_semaphore.release();
 }
 
 void ProducerImpl::handle_metadata_update(std::string_view stream)
