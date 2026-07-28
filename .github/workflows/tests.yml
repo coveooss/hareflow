@@ -62,3 +62,70 @@ jobs:
         shell: bash
         run: |
           ctest --test-dir build
+
+  integration-tests:
+    runs-on: ubuntu-24.04
+
+    steps:
+      - name: Harden Runner
+        uses: step-security/harden-runner@c6295a65d1254861815972266d5933fd6e532bdf # v2.11.1
+        with:
+          egress-policy: audit
+
+      - uses: actions/checkout@ee0669bd1cc54295c223e0bb666b733df41de1c5 # v2.7.0
+        with:
+          submodules: recursive
+          fetch-depth: 0
+      - name: Create cache folder
+        shell: bash
+        run: mkdir .cache
+      - name: Enable vcpkg cache
+        uses: actions/cache@5a3ec84eff668545956fd18022155c47e93e2684 # v4.2.3
+        with:
+          path: .cache
+          key: vcpkg-integration-linux-gcc-${{ hashFiles('**/vcpkg.json', '**/vcpkg-configuration.json') }}
+      - name: Install apt dependencies
+        run: |
+          sudo apt-get update && sudo apt-get install -y clang build-essential libssl-dev curl ninja-build
+
+      - name: Start RabbitMQ
+        # This follows the official Java client's `ci/start-broker.sh` script.
+        run: |
+          mkdir -p /tmp/rabbitmq-conf
+          cat > /tmp/rabbitmq-conf/rabbitmq.conf <<'EOF'
+          stream.advertised_host = 127.0.0.1
+          EOF
+          cat > /tmp/rabbitmq-conf/enabled_plugins <<'EOF'
+          [rabbitmq_stream, rabbitmq_stream_common].
+          EOF
+
+          docker run -d --name rabbitmq \
+            -p 5552:5552 \
+            -v /tmp/rabbitmq-conf/rabbitmq.conf:/etc/rabbitmq/conf.d/90-hareflow-ci.conf:ro \
+            -v /tmp/rabbitmq-conf/enabled_plugins:/etc/rabbitmq/enabled_plugins:ro \
+            rabbitmq:4.3
+
+          for _ in $(seq 1 60); do
+            if docker logs rabbitmq 2>&1 | grep -q "completed with"; then
+              echo "RabbitMQ is up"
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "Timed out waiting for RabbitMQ to finish booting" >&2
+          docker logs rabbitmq
+          exit 1
+
+      - name: Build Integration Tests
+        env:
+          CXX: g++
+          CMAKE_TOOLCHAIN_FILE: ${{ github.workspace }}/vcpkg/scripts/buildsystems/vcpkg.cmake
+          VCPKG_DEFAULT_BINARY_CACHE: ${{ github.workspace }}/.cache
+        shell: bash
+        run: |
+          cmake -B build -S . -G Ninja -DBUILD_INTEGRATION=ON -DCMAKE_BUILD_TYPE=Debug
+          cmake --build build/
+      - name: Run Integration Tests
+        shell: bash
+        run: |
+          ctest --test-dir build --exclude-regex '.*Bench.*' --output-on-failure
