@@ -58,6 +58,7 @@ private:
         BackgroundScheduler*                    scheduler;
         std::function<void()>                   function;
         std::mutex                              mutex{};
+        bool                                    destroyed{false};
         std::int64_t                            pending_invocations{0};
         std::optional<std::shared_future<void>> current_invocation{};
         std::shared_ptr<AsyncTask>              async_task;

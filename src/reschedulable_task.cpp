@@ -65,11 +65,14 @@ ReschedulableTask::ReschedulableTask(BackgroundScheduler& scheduler, std::functi
     m_state             = std::make_unique<InternalState>(&scheduler, std::move(function));
     m_state->async_task = AsyncTask::create([state = m_state.get()]() {
         std::unique_lock lock{state->mutex};
+        if (state->destroyed) {
+            return;
+        }
         if (++state->pending_invocations == 1 && !state->current_invocation) {
             state->current_invocation = state->scheduler
                                             ->run_task([state]() {
                                                 std::unique_lock lock{state->mutex};
-                                                while (state->pending_invocations > 0) {
+                                                while (!state->destroyed && state->pending_invocations > 0) {
                                                     --state->pending_invocations;
                                                     lock.unlock();
                                                     state->function();
@@ -114,7 +117,7 @@ void ReschedulableTask::schedule_now()
     }
 
     std::unique_lock lock{m_state->mutex};
-    if (m_state->async_task && m_state->pending_invocations != -1) {
+    if (m_state->async_task && !m_state->destroyed) {
         m_state->async_task->schedule_now();
     }
 }
@@ -126,7 +129,7 @@ void ReschedulableTask::schedule_after(std::chrono::steady_clock::duration delay
     }
 
     std::unique_lock lock{m_state->mutex};
-    if (m_state->async_task && m_state->pending_invocations != -1) {
+    if (m_state->async_task && !m_state->destroyed) {
         m_state->async_task->schedule_after(delay);
     }
 }
@@ -154,15 +157,22 @@ void ReschedulableTask::destroy()
         return;
     }
 
-    m_state->async_task->destroy();
-    m_state->pending_invocations = -1;
+    std::shared_ptr<AsyncTask> async_task = m_state->async_task;
+    m_state->destroyed                    = true;
+
+    // The mutex must be unlocked before the task is destroyed. Otherwise a task which
+    // runs on the asio strand at the same time may deadlock against the acquisition here.
+    lock.unlock();
+    async_task->destroy();
+    lock.lock();
+
     if (m_state->current_invocation) {
         std::shared_future<void> current_invocation = *m_state->current_invocation;
         lock.unlock();
         current_invocation.get();
         lock.lock();
-        m_state->async_task = nullptr;
     }
+    m_state->async_task = nullptr;
 }
 
 }  // namespace hareflow::detail

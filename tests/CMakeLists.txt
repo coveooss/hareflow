@@ -15,4 +15,5 @@ target_sources(hareflow_tests
     PRIVATE
         ${CMAKE_CURRENT_LIST_DIR}/consumer.cpp
         ${CMAKE_CURRENT_LIST_DIR}/producer.cpp
+        ${CMAKE_CURRENT_LIST_DIR}/reschedulable_task.cpp
 )
