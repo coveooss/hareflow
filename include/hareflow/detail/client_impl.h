@@ -57,6 +57,7 @@ private:
     void                     authenticate();
     std::vector<std::string> sasl_handshake();
     Properties               open();
+    void                     maybe_exchange_command_versions();
 
     void complete_outstanding_request(std::unique_ptr<ServerResponse> response);
     void drop_outstanding_request(std::uint32_t correlation_id);

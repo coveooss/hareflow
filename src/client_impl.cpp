@@ -1,5 +1,8 @@
 #include "hareflow/detail/client_impl.h"
 
+#include <algorithm>
+#include <array>
+#include <charconv>
 #include <thread>
 #include <fmt/format.h>
 
@@ -9,6 +12,47 @@
 #include "hareflow/detail/connection.h"
 
 namespace {
+
+// Versions of broker-initiated commands that we can parse.
+// Min and max are assumed to be 1 unless specified in this list.
+const std::vector<hareflow::detail::CommandVersion> SUPPORTED_COMMAND_VERSIONS{
+    {static_cast<std::uint16_t>(hareflow::detail::CommandKey::Deliver), 1, 1},  // FUTURE: switch max to 2 once deliver v2 is supported.
+};
+
+hareflow::detail::CommandVersion supported_versions(std::uint16_t key)
+{
+    auto it = std::ranges::find(SUPPORTED_COMMAND_VERSIONS, key, &hareflow::detail::CommandVersion::m_key);
+    return it == SUPPORTED_COMMAND_VERSIONS.end() ? hareflow::detail::CommandVersion{key, 1, 1} : *it;
+}
+
+// Brokers older than RabbitMQ 3.11 close the connection upon receiving a command they do not know, so we only send ExchangeCommandVersions when the
+// broker's reported version says it is safe. A missing or unparseable version means we skip the exchange.
+bool supports_command_versions_exchange(const hareflow::Properties& server_properties)
+{
+    auto it = server_properties.find("version");
+    if (it == server_properties.end()) {
+        return false;
+    }
+
+    // Only examine leading triple, ignore suffixes like in "3.13.0-rc.1"
+    std::string_view            remaining = it->second;
+    std::array<unsigned int, 3> version{};
+    for (std::size_t i = 0; i < version.size(); ++i) {
+        if (i > 0) {
+            if (remaining.empty() || remaining.front() != '.') {
+                return false;
+            }
+            remaining.remove_prefix(1);
+        }
+        auto [ptr, ec] = std::from_chars(remaining.data(), remaining.data() + remaining.size(), version[i]);
+        if (ec != std::errc{}) {
+            return false;
+        }
+        remaining.remove_prefix(ptr - remaining.data());
+    }
+
+    return version >= std::array<unsigned int, 3>{3, 11, 0};
+}
 
 std::uint16_t compute_effective_port(std::uint16_t port, bool use_ssl)
 {
@@ -58,6 +102,7 @@ const std::map<CommandKey, ClientImpl::HandlerFunc> ClientImpl::FRAME_HANDLERS{
     {CommandKey::PeerProperties, &ClientImpl::handle_response<PeerPropertiesResponse>},
     {CommandKey::QueryOffset, &ClientImpl::handle_response<QueryOffsetResponse>},
     {CommandKey::QueryPublisherSequence, &ClientImpl::handle_response<QueryPublisherSequenceResponse>},
+    {CommandKey::ExchangeCommandVersions, &ClientImpl::handle_response<ExchangeCommandVersionsResponse>},
     {CommandKey::Close, &ClientImpl::handle_close},
     {CommandKey::PublishConfirm, &ClientImpl::handle_publish_confirm},
     {CommandKey::Deliver, &ClientImpl::handle_deliver},
@@ -100,6 +145,7 @@ void ClientImpl::start()
         tune_future.get();
 
         m_connection_properties = open();
+        maybe_exchange_command_versions();
 
         expected = Status::Starting;
         if (!m_status.compare_exchange_strong(expected, Status::Started)) {
@@ -373,6 +419,21 @@ Properties ClientImpl::open()
     return std::move(response->get_connection_properties());
 }
 
+void ClientImpl::maybe_exchange_command_versions()
+{
+    if (!supports_command_versions_exchange(m_server_properties)) {
+        Logger::debug("Broker does not support exchanging command versions, assuming version 1 of every command");
+        return;
+    }
+
+    try {
+        ExchangeCommandVersionsRequest request(++m_correlation_sequence, SUPPORTED_COMMAND_VERSIONS);
+        send_request_check_response_code<ExchangeCommandVersionsResponse>(request);
+    } catch (const ResponseErrorException& e) {
+        Logger::warn("Broker refused to exchange command versions, assuming version 1 of every command: {}", e.what());
+    }
+}
+
 void ClientImpl::complete_outstanding_request(std::unique_ptr<ServerResponse> response)
 {
     std::unique_lock lock(m_outstanding_mutex);
@@ -439,8 +500,9 @@ void ClientImpl::handle_frames()
             bool          is_response = (key & 0x8000) != 0;
             key &= 0x7FFF;
 
-            if (version != 1) {
-                throw StreamException(fmt::format("Unsupported command version {}", version));
+            CommandVersion supported = supported_versions(key);
+            if (version < supported.m_min_version || version > supported.m_max_version) {
+                throw StreamException(fmt::format("Unsupported version {} for command {:#04x}", version, key));
             }
 
             if (m_status.load() != Status::Stopping) {

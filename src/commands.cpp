@@ -428,4 +428,31 @@ void GenericResponse::read_body(BinaryBuffer& buffer)
     m_response_code = buffer.read_ushort();
 }
 
+std::size_t ExchangeCommandVersionsRequest::body_size() const
+{
+    return BinaryBuffer::serialized_size(m_command_versions,
+                                         [](const auto& elem) { return sizeof(elem.m_key) + sizeof(elem.m_min_version) + sizeof(elem.m_max_version); });
+}
+
+void ExchangeCommandVersionsRequest::write_body(BinaryBuffer& buffer) const
+{
+    buffer.write_array(m_command_versions, [](auto& buffer, const auto& elem) {
+        buffer.write_ushort(elem.m_key);
+        buffer.write_ushort(elem.m_min_version);
+        buffer.write_ushort(elem.m_max_version);
+    });
+}
+
+void ExchangeCommandVersionsResponse::read_body(BinaryBuffer& buffer)
+{
+    m_response_code = buffer.read_ushort();
+    buffer.read_array(m_command_versions, [](auto& buffer) {
+        CommandVersion command_version;
+        command_version.m_key         = buffer.read_ushort();
+        command_version.m_min_version = buffer.read_ushort();
+        command_version.m_max_version = buffer.read_ushort();
+        return command_version;
+    });
+}
+
 }  // namespace hareflow::detail
