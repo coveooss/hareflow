@@ -2,6 +2,17 @@
 
 namespace hareflow::detail {
 
+namespace {
+
+std::pair<std::string, std::string> read_property(BinaryBuffer& buffer)
+{
+    std::string key{buffer.read_string()};
+    std::string value{buffer.read_string()};
+    return {std::move(key), std::move(value)};
+}
+
+}  // namespace
+
 const std::size_t PublishCommand::BASE_SERIALIZED_SIZE = PublishCommand(0, {}).serialized_size();
 
 std::size_t ClientCommand::header_size() const
@@ -302,7 +313,7 @@ void PeerPropertiesRequest::write_body(BinaryBuffer& buffer) const
 void PeerPropertiesResponse::read_body(BinaryBuffer& buffer)
 {
     m_response_code = buffer.read_ushort();
-    buffer.read_array(m_properties, [](auto& buffer) { return std::make_pair(std::string(buffer.read_string()), std::string(buffer.read_string())); });
+    buffer.read_array(m_properties, [](auto& buffer) { return read_property(buffer); });
 }
 
 std::size_t SaslHandshakeRequest::body_size() const
@@ -372,8 +383,7 @@ void OpenRequest::write_body(BinaryBuffer& buffer) const
 void OpenResponse::read_body(BinaryBuffer& buffer)
 {
     m_response_code = buffer.read_ushort();
-    buffer.read_array(m_connection_properties,
-                      [](auto& buffer) { return std::make_pair(std::string(buffer.read_string()), std::string(buffer.read_string())); });
+    buffer.read_array(m_connection_properties, [](auto& buffer) { return read_property(buffer); });
 }
 
 std::size_t ClientCloseRequest::body_size() const
