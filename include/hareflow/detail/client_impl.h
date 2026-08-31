@@ -71,7 +71,7 @@ private:
     void                                 handle_frames();
     template<typename ResponseType> void handle_response(BinaryBuffer& buffer);
     void                                 handle_close(BinaryBuffer& buffer);
-    void                                 handle_deliver(BinaryBuffer& buffer);
+    template<std::uint16_t Version> void handle_deliver(BinaryBuffer& buffer);
     void                                 handle_publish_confirm(BinaryBuffer& buffer);
     void                                 handle_publish_error(BinaryBuffer& buffer);
     void                                 handle_tune(BinaryBuffer& buffer);

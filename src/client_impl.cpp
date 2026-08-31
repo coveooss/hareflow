@@ -16,7 +16,7 @@ namespace {
 // Versions of broker-initiated commands that we can parse.
 // Min and max are assumed to be 1 unless specified in this list.
 const std::vector<hareflow::detail::CommandVersion> SUPPORTED_COMMAND_VERSIONS{
-    {static_cast<std::uint16_t>(hareflow::detail::CommandKey::Deliver), 1, 1},  // FUTURE: switch max to 2 once deliver v2 is supported.
+    {static_cast<std::uint16_t>(hareflow::detail::CommandKey::Deliver), 1, 2},
 };
 
 // Brokers older than RabbitMQ 3.11 close the connection upon receiving a command they do not know, so we only send ExchangeCommandVersions when the
@@ -99,7 +99,8 @@ const std::map<ClientImpl::HandlerKey, ClientImpl::HandlerFunc> ClientImpl::FRAM
     {{CommandKey::ExchangeCommandVersions, 1}, &ClientImpl::handle_response<ExchangeCommandVersionsResponse>},
     {{CommandKey::Close, 1}, &ClientImpl::handle_close},
     {{CommandKey::PublishConfirm, 1}, &ClientImpl::handle_publish_confirm},
-    {{CommandKey::Deliver, 1}, &ClientImpl::handle_deliver},
+    {{CommandKey::Deliver, 1}, &ClientImpl::handle_deliver<1>},
+    {{CommandKey::Deliver, 2}, &ClientImpl::handle_deliver<2>},
     {{CommandKey::PublishError, 1}, &ClientImpl::handle_publish_error},
     {{CommandKey::MetadataUpdate, 1}, &ClientImpl::handle_metadata_update},
     {{CommandKey::Tune, 1}, &ClientImpl::handle_tune},
@@ -545,13 +546,13 @@ void ClientImpl::handle_close(BinaryBuffer& buffer)
     throw ServerCloseException("Server requested close");
 }
 
-void ClientImpl::handle_deliver(BinaryBuffer& buffer)
+template<std::uint16_t Version> void ClientImpl::handle_deliver(BinaryBuffer& buffer)
 {
     if (!m_chunk_listener && !m_message_listener) {
         return;
     }
 
-    DeliverCommand command;
+    DeliverCommand command{Version};
     command.deserialize(buffer);
     std::uint8_t                 subscription_id = command.get_subscription_id();
     const DeliverCommand::Chunk& chunk           = command.get_chunk();
