@@ -55,7 +55,7 @@ private:
     InternalClientPtr      get_client(InternalEnvironmentPtr environment);
     void                   internal_stop();
     void                   internal_store_offset(std::uint64_t offset);
-    void                   handle_message(std::int64_t timestamp, std::uint64_t offset, MessagePtr message);
+    void                   handle_message(const ChunkContext& chunk_context, std::uint64_t offset, MessagePtr message);
     void                   handle_metadata_update(std::string_view stream);
     void                   handle_shutdown(ShutdownReason reason);
     void                   store_current_offset();

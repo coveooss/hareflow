@@ -554,10 +554,11 @@ template<std::uint16_t Version> void ClientImpl::handle_deliver(BinaryBuffer& bu
 
     DeliverCommand command{Version};
     command.deserialize(buffer);
-    std::uint8_t                 subscription_id = command.get_subscription_id();
     const DeliverCommand::Chunk& chunk           = command.get_chunk();
+    std::uint8_t                 subscription_id = command.get_subscription_id();
+    ChunkContext                 chunk_context{chunk.m_timestamp, chunk.m_offset, chunk.m_nb_entries, command.get_committed_chunk_id()};
     if (m_chunk_listener) {
-        m_chunk_listener(*this, subscription_id, chunk.m_timestamp, chunk.m_offset, chunk.m_nb_entries);
+        m_chunk_listener(*this, subscription_id, chunk_context);
     }
     if (!m_message_listener) {
         return;
@@ -566,7 +567,7 @@ template<std::uint16_t Version> void ClientImpl::handle_deliver(BinaryBuffer& bu
     std::uint64_t message_offset = chunk.m_offset;
     for (const auto& encoded_message : command.get_messages()) {
         MessagePtr message = m_codec->decode(encoded_message.data(), encoded_message.size());
-        m_message_listener(subscription_id, chunk.m_timestamp, message_offset, message);
+        m_message_listener(subscription_id, chunk_context, message_offset, message);
         ++message_offset;
     }
 }

@@ -11,9 +11,8 @@
 
 namespace hareflow {
 
-using ChunkListener =
-    std::function<void(Client& client, std::uint8_t subscription_id, std::int64_t timestamp, std::uint64_t offset, std::uint32_t message_count)>;
-using MessageListener        = std::function<void(std::uint8_t subscription_id, std::int64_t chunk_timestamp, std::uint64_t offset, MessagePtr message)>;
+using ChunkListener          = std::function<void(Client& client, std::uint8_t subscription_id, const ChunkContext& chunk_context)>;
+using MessageListener        = std::function<void(std::uint8_t subscription_id, const ChunkContext& chunk_context, std::uint64_t offset, MessagePtr message)>;
 using PublishConfirmListener = std::function<void(std::uint8_t publisher_id, std::uint64_t publishing_id)>;
 using PublishErrorListener   = std::function<void(std::uint8_t publisher_id, std::uint64_t publishing_id, ResponseCode error_code)>;
 using MetadataListener       = std::function<void(std::string_view stream, ResponseCode error_code)>;

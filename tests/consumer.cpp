@@ -13,6 +13,11 @@
 constexpr std::string_view stream_name   = "my-stream";
 constexpr std::string_view consumer_name = "my-consumer";
 
+hareflow::ChunkContext chunk_context(std::uint64_t offset = 0, std::optional<std::uint64_t> committed_chunk_id = std::nullopt)
+{
+    return hareflow::ChunkContext{0, offset, 1, committed_chunk_id};
+}
+
 class ConsumerTest : public testing::Test
 {
 protected:
@@ -77,7 +82,7 @@ TEST_F(ConsumerTest, PartiallyConsumedChunk)
                                          .build();
 
     for (auto offset = chunk_start_offset; offset <= chunk_end_offset; ++offset) {
-        client_parameters.get_message_listener()(0, 0, offset, hareflow::MessageBuilder().body("hello").build());
+        client_parameters.get_message_listener()(0, chunk_context(offset), offset, hareflow::MessageBuilder().body("hello").build());
     }
 
     EXPECT_EQ(consumed, 2);
@@ -118,7 +123,7 @@ TEST_F(ConsumerTest, AutoCursorFrequency)
                                          .build();
 
     for (int i = 0; i < to_consume; ++i) {
-        client_parameters.get_message_listener()(0, 0, i, hareflow::MessageBuilder().body("hello").build());
+        client_parameters.get_message_listener()(0, chunk_context(i), i, hareflow::MessageBuilder().body("hello").build());
     }
 
     EXPECT_EQ(done.get_future().wait_for(std::chrono::seconds::zero()), std::future_status::ready);
@@ -141,7 +146,7 @@ TEST_F(ConsumerTest, AutoCursorForceDelay)
                                          .message_handler([&](auto...) { ++consumed; })
                                          .build();
 
-    client_parameters.get_message_listener()(0, 0, 1, hareflow::MessageBuilder().body("hello").build());
+    client_parameters.get_message_listener()(0, chunk_context(1), 1, hareflow::MessageBuilder().body("hello").build());
 
     EXPECT_EQ(done.get_future().wait_for(std::chrono::seconds{1}), std::future_status::ready);
     EXPECT_EQ(consumed, 1);
@@ -163,7 +168,7 @@ TEST_F(ConsumerTest, AutoCursorStoreOnStop)
                                          .message_handler([&](auto...) { ++consumed; })
                                          .build();
 
-    client_parameters.get_message_listener()(0, 0, 1, hareflow::MessageBuilder().body("hello").build());
+    client_parameters.get_message_listener()(0, chunk_context(1), 1, hareflow::MessageBuilder().body("hello").build());
 
     consumer = nullptr;
 
@@ -226,7 +231,7 @@ TEST_F(ConsumerTest, ReconnectWithLastSeen)
 
     hareflow::ConsumerPtr consumer = consumer_builder().offset_specification(hareflow::OffsetSpecification::next()).build();
 
-    client_parameters.get_message_listener()(0, 0, 1, hareflow::MessageBuilder().body("hello").build());
+    client_parameters.get_message_listener()(0, chunk_context(1), 1, hareflow::MessageBuilder().body("hello").build());
     client_parameters.get_shutdown_listener()(hareflow::ShutdownReason::Unknown);
 
     EXPECT_EQ(done.get_future().wait_for(std::chrono::seconds{1}), std::future_status::ready);
