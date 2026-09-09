@@ -109,7 +109,9 @@ private:
     std::thread m_frame_handling_thread;
 
     using HandlerFunc = void (ClientImpl::*)(BinaryBuffer&);
-    static const std::map<CommandKey, HandlerFunc> FRAME_HANDLERS;
+
+    using HandlerKey = std::pair<CommandKey, std::uint16_t>;
+    static const std::map<HandlerKey, HandlerFunc> FRAME_HANDLERS;
 };
 
 }  // namespace hareflow::detail

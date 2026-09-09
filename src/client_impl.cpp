@@ -19,12 +19,6 @@ const std::vector<hareflow::detail::CommandVersion> SUPPORTED_COMMAND_VERSIONS{
     {static_cast<std::uint16_t>(hareflow::detail::CommandKey::Deliver), 1, 1},  // FUTURE: switch max to 2 once deliver v2 is supported.
 };
 
-hareflow::detail::CommandVersion supported_versions(std::uint16_t key)
-{
-    auto it = std::ranges::find(SUPPORTED_COMMAND_VERSIONS, key, &hareflow::detail::CommandVersion::m_key);
-    return it == SUPPORTED_COMMAND_VERSIONS.end() ? hareflow::detail::CommandVersion{key, 1, 1} : *it;
-}
-
 // Brokers older than RabbitMQ 3.11 close the connection upon receiving a command they do not know, so we only send ExchangeCommandVersions when the
 // broker's reported version says it is safe. A missing or unparseable version means we skip the exchange.
 bool supports_command_versions_exchange(const hareflow::Properties& server_properties)
@@ -88,29 +82,29 @@ ClientPtr Client::create(ClientParameters parameters)
 
 namespace hareflow::detail {
 
-const std::map<CommandKey, ClientImpl::HandlerFunc> ClientImpl::FRAME_HANDLERS{
-    {CommandKey::Subscribe, &ClientImpl::handle_response<GenericResponse>},
-    {CommandKey::Unsubscribe, &ClientImpl::handle_response<GenericResponse>},
-    {CommandKey::DeclarePublisher, &ClientImpl::handle_response<GenericResponse>},
-    {CommandKey::DeletePublisher, &ClientImpl::handle_response<GenericResponse>},
-    {CommandKey::Create, &ClientImpl::handle_response<GenericResponse>},
-    {CommandKey::Delete, &ClientImpl::handle_response<GenericResponse>},
-    {CommandKey::Open, &ClientImpl::handle_response<OpenResponse>},
-    {CommandKey::Metadata, &ClientImpl::handle_response<MetadataResponse>},
-    {CommandKey::SaslHandshake, &ClientImpl::handle_response<SaslHandshakeResponse>},
-    {CommandKey::SaslAuthenticate, &ClientImpl::handle_response<SaslAuthenticateResponse>},
-    {CommandKey::PeerProperties, &ClientImpl::handle_response<PeerPropertiesResponse>},
-    {CommandKey::QueryOffset, &ClientImpl::handle_response<QueryOffsetResponse>},
-    {CommandKey::QueryPublisherSequence, &ClientImpl::handle_response<QueryPublisherSequenceResponse>},
-    {CommandKey::ExchangeCommandVersions, &ClientImpl::handle_response<ExchangeCommandVersionsResponse>},
-    {CommandKey::Close, &ClientImpl::handle_close},
-    {CommandKey::PublishConfirm, &ClientImpl::handle_publish_confirm},
-    {CommandKey::Deliver, &ClientImpl::handle_deliver},
-    {CommandKey::PublishError, &ClientImpl::handle_publish_error},
-    {CommandKey::MetadataUpdate, &ClientImpl::handle_metadata_update},
-    {CommandKey::Tune, &ClientImpl::handle_tune},
-    {CommandKey::Credit, &ClientImpl::handle_credit},
-    {CommandKey::Heartbeat, &ClientImpl::handle_heartbeat}};
+const std::map<ClientImpl::HandlerKey, ClientImpl::HandlerFunc> ClientImpl::FRAME_HANDLERS{
+    {{CommandKey::Subscribe, 1}, &ClientImpl::handle_response<GenericResponse>},
+    {{CommandKey::Unsubscribe, 1}, &ClientImpl::handle_response<GenericResponse>},
+    {{CommandKey::DeclarePublisher, 1}, &ClientImpl::handle_response<GenericResponse>},
+    {{CommandKey::DeletePublisher, 1}, &ClientImpl::handle_response<GenericResponse>},
+    {{CommandKey::Create, 1}, &ClientImpl::handle_response<GenericResponse>},
+    {{CommandKey::Delete, 1}, &ClientImpl::handle_response<GenericResponse>},
+    {{CommandKey::Open, 1}, &ClientImpl::handle_response<OpenResponse>},
+    {{CommandKey::Metadata, 1}, &ClientImpl::handle_response<MetadataResponse>},
+    {{CommandKey::SaslHandshake, 1}, &ClientImpl::handle_response<SaslHandshakeResponse>},
+    {{CommandKey::SaslAuthenticate, 1}, &ClientImpl::handle_response<SaslAuthenticateResponse>},
+    {{CommandKey::PeerProperties, 1}, &ClientImpl::handle_response<PeerPropertiesResponse>},
+    {{CommandKey::QueryOffset, 1}, &ClientImpl::handle_response<QueryOffsetResponse>},
+    {{CommandKey::QueryPublisherSequence, 1}, &ClientImpl::handle_response<QueryPublisherSequenceResponse>},
+    {{CommandKey::ExchangeCommandVersions, 1}, &ClientImpl::handle_response<ExchangeCommandVersionsResponse>},
+    {{CommandKey::Close, 1}, &ClientImpl::handle_close},
+    {{CommandKey::PublishConfirm, 1}, &ClientImpl::handle_publish_confirm},
+    {{CommandKey::Deliver, 1}, &ClientImpl::handle_deliver},
+    {{CommandKey::PublishError, 1}, &ClientImpl::handle_publish_error},
+    {{CommandKey::MetadataUpdate, 1}, &ClientImpl::handle_metadata_update},
+    {{CommandKey::Tune, 1}, &ClientImpl::handle_tune},
+    {{CommandKey::Credit, 1}, &ClientImpl::handle_credit},
+    {{CommandKey::Heartbeat, 1}, &ClientImpl::handle_heartbeat}};
 
 std::shared_ptr<ClientImpl> ClientImpl::create(ClientParameters parameters)
 {
@@ -500,16 +494,11 @@ void ClientImpl::handle_frames()
             bool          is_response = (key & 0x8000) != 0;
             key &= 0x7FFF;
 
-            CommandVersion supported = supported_versions(key);
-            if (version < supported.m_min_version || version > supported.m_max_version) {
-                throw StreamException(fmt::format("Unsupported version {} for command {:#04x}", version, key));
-            }
-
             if (m_status.load() != Status::Stopping) {
-                if (auto it = FRAME_HANDLERS.find(static_cast<CommandKey>(key)); it != FRAME_HANDLERS.end()) {
+                if (auto it = FRAME_HANDLERS.find({static_cast<CommandKey>(key), version}); it != FRAME_HANDLERS.end()) {
                     std::invoke(it->second, this, buffer);
                 } else {
-                    throw StreamException(fmt::format("Unsupported command {:#04x}", key));
+                    throw StreamException(fmt::format("Unsupported command {:#04x} at version {}", key, version));
                 }
             } else if (is_response && static_cast<CommandKey>(key) == CommandKey::Close) {
                 handle_response<GenericResponse>(buffer);
