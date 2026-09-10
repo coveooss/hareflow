@@ -150,7 +150,10 @@ void SubscribeRequest::write_body(BinaryBuffer& buffer) const
 
 void DeliverCommand::read_body(BinaryBuffer& buffer)
 {
-    m_subscription_id       = buffer.read_byte();
+    m_subscription_id = buffer.read_byte();
+    if (get_version() >= 2) {
+        m_committed_chunk_id = buffer.read_ulong();
+    }
     m_chunk.m_magic_version = buffer.read_byte();
     m_chunk.m_chunk_type    = buffer.read_byte();
     m_chunk.m_nb_entries    = buffer.read_ushort();

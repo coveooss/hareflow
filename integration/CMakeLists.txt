@@ -14,5 +14,6 @@ target_compile_definitions(hareflow_integration PRIVATE $<$<PLATFORM_ID:Windows>
 target_sources(hareflow_integration
     PRIVATE
         ${CMAKE_CURRENT_LIST_DIR}/bench.cpp
+        ${CMAKE_CURRENT_LIST_DIR}/consumer.cpp
         ${CMAKE_CURRENT_LIST_DIR}/producer.cpp
 )

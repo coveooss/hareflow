@@ -160,6 +160,16 @@ class ClientResponse : public ClientRequestOrResponse
 class ServerCommand : public Deserializable
 {
 public:
+    ServerCommand() = default;
+    explicit ServerCommand(std::uint16_t version) : m_version{version}
+    {
+    }
+
+    std::uint16_t get_version() const
+    {
+        return m_version;
+    }
+
     void deserialize(BinaryBuffer& buffer) final
     {
         read_body(buffer);
@@ -167,6 +177,9 @@ public:
 
 protected:
     virtual void read_body(BinaryBuffer& buffer) = 0;
+
+private:
+    std::uint16_t m_version{1};
 };
 
 class ServerRequestOrResponse : public Deserializable
@@ -419,9 +432,16 @@ public:
         std::uint32_t m_reserved;
     };
 
+    using ServerCommand::ServerCommand;
+
     std::uint8_t get_subscription_id() const
     {
         return m_subscription_id;
+    }
+
+    std::optional<std::uint64_t> get_committed_chunk_id() const
+    {
+        return m_committed_chunk_id;
     }
 
     const Chunk& get_chunk() const
@@ -447,8 +467,9 @@ public:
 protected:
     void read_body(BinaryBuffer& buffer) override;
 
-protected:
+private:
     std::uint8_t                           m_subscription_id;
+    std::optional<std::uint64_t>           m_committed_chunk_id;
     Chunk                                  m_chunk;
     BinaryBuffer                           m_data;
     std::vector<boost::asio::const_buffer> m_messages;
