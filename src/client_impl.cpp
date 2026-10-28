@@ -353,6 +353,7 @@ ClientImpl::ClientImpl(ClientParameters parameters)
    m_connection_properties{},
    m_correlation_sequence{0},
    m_status{Status::Initialized},
+   m_heartbeat_timed_out{false},
    m_tune_promise{},
    m_outstanding_mutex{},
    m_outstanding_requests{},
@@ -512,7 +513,7 @@ void ClientImpl::handle_frames()
             shutdown_reason = ShutdownReason::ServerInitiated;
             break;
         } catch (const IOException&) {
-            shutdown_reason = ShutdownReason::Unknown;
+            shutdown_reason = m_heartbeat_timed_out ? ShutdownReason::HeartbeatTimeout : ShutdownReason::Unknown;
             break;
         } catch (const StreamException& e) {
             Logger::warn("Exception while processing frame: {}", e.what());
@@ -620,10 +621,10 @@ void ClientImpl::handle_tune(BinaryBuffer& buffer)
     if (m_heartbeat != std::chrono::seconds::zero()) {
         m_connection->set_writer_idle_handler(m_heartbeat, [this]() { send_frame(ClientHeartbeatCommand()); });
         m_connection->set_reader_idle_handler(m_heartbeat * 2, [this]() {
-            Status expected = Status::Started;
-            if (m_status.compare_exchange_strong(expected, Status::Stopping)) {
+            if (m_status.load() == Status::Started) {
                 Logger::warn("Timeout while waiting for server heartbeat, closing connection");
-                shutdown(ShutdownReason::HeartbeatTimeout);
+                m_heartbeat_timed_out = true;
+                m_connection->shutdown();
             }
         });
     }
