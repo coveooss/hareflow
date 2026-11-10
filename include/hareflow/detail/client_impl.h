@@ -100,6 +100,7 @@ private:
     Properties                 m_connection_properties;
     std::atomic<std::uint32_t> m_correlation_sequence;
     std::atomic<Status>        m_status;
+    std::atomic<bool>          m_heartbeat_timed_out;
 
     std::promise<void> m_tune_promise;
 

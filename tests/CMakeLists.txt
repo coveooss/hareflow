@@ -13,6 +13,7 @@ target_compile_definitions(hareflow_tests PRIVATE $<$<PLATFORM_ID:Windows>:_WIN3
 
 target_sources(hareflow_tests
     PRIVATE
+        ${CMAKE_CURRENT_LIST_DIR}/client.cpp
         ${CMAKE_CURRENT_LIST_DIR}/consumer.cpp
         ${CMAKE_CURRENT_LIST_DIR}/producer.cpp
         ${CMAKE_CURRENT_LIST_DIR}/reschedulable_task.cpp
