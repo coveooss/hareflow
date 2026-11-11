@@ -27,12 +27,16 @@ public:
     static std::shared_ptr<Connection> create(std::string host, std::uint16_t port, bool use_ssl, bool verify_host);
 
     void connect();
+    // Closes the socket without waiting. Safe to call from any thread, including from within an idle handler.
+    void initiate_close();
+    // Closes the socket and waits until the idle handlers are cleared, after which they are guaranteed not to be called anymore.
+    // Blocks on the connection's strand, so it must not be called from an I/O thread unless already running on that strand.
     void shutdown();
 
     void                      set_writer_idle_handler(std::chrono::seconds timeout, std::function<void()> handler);
     void                      set_reader_idle_handler(std::chrono::seconds timeout, std::function<void()> handler);
-    BinaryBuffer              allocate_buffer(std::size_t size);
-    void                      release_buffer(BinaryBuffer buffer);
+    BinaryBuffer              acquire_buffer(std::size_t size);
+    void                      recycle_buffer(BinaryBuffer buffer);
     std::future<void>         write(BinaryBuffer buffer);
     std::future<BinaryBuffer> read();
 
@@ -91,6 +95,7 @@ private:
     };
 
     Connection(std::string host, std::uint16_t port, bool use_ssl, bool verify_host);
+    void internal_close();
     void send_outbox();
     void start_async_read_chain();
     void start_writer_idle_monitoring();
