@@ -42,6 +42,11 @@ void Connection::connect()
     start_async_read_chain();
 }
 
+std::future<void> Connection::close()
+{
+    return io::dispatch(m_strand, std::packaged_task<void()>{[this, self = shared_from_this()]() { internal_close(); }});
+}
+
 void Connection::set_writer_idle_handler(std::chrono::seconds timeout, std::function<void()> handler)
 {
     io::post(m_strand, std::packaged_task<void()>{[this, timeout, handler = std::move(handler), self = shared_from_this()]() {
@@ -62,22 +67,7 @@ void Connection::set_reader_idle_handler(std::chrono::seconds timeout, std::func
         .get();
 }
 
-void Connection::shutdown()
-{
-    boost::system::error_code code;
-    m_socket.shutdown(tcp::socket::shutdown_both, code);
-    m_socket.close(code);
-
-    io::dispatch(m_strand, std::packaged_task<void()>{[this, self = shared_from_this()]() {
-                     m_writer_idle_handler = nullptr;
-                     m_reader_idle_handler = nullptr;
-                     m_writer_idle_timer.cancel();
-                     m_reader_idle_timer.cancel();
-                 }})
-        .get();
-}
-
-BinaryBuffer Connection::allocate_buffer(std::size_t size)
+BinaryBuffer Connection::acquire_buffer(std::size_t size)
 {
     BinaryBuffer buffer;
     {
@@ -91,7 +81,7 @@ BinaryBuffer Connection::allocate_buffer(std::size_t size)
     return buffer;
 }
 
-void Connection::release_buffer(BinaryBuffer buffer)
+void Connection::recycle_buffer(BinaryBuffer buffer)
 {
     buffer.clear();
     std::unique_lock lock(m_buffer_pool_mutex);
@@ -158,6 +148,25 @@ Connection::Connection(std::string host, std::uint16_t port, bool use_ssl, bool 
     }
 }
 
+void Connection::internal_close()
+{
+    boost::system::error_code code;
+    m_socket.shutdown(tcp::socket::shutdown_both, code);
+    m_socket.close(code);
+
+    m_writer_idle_handler = nullptr;
+    m_reader_idle_handler = nullptr;
+    m_writer_idle_timer.cancel();
+    m_reader_idle_timer.cancel();
+
+    m_connection_failed = true;
+    m_inbox.clear();
+    if (m_pending_read) {
+        m_pending_read->set_exception(std::make_exception_ptr(IOException("Connection closed")));
+        m_pending_read = nullptr;
+    }
+}
+
 void Connection::send_outbox()
 {
     std::size_t nb_buffers = m_outbox.size();
@@ -168,7 +177,7 @@ void Connection::send_outbox()
             } else {
                 m_outbox.front()->set_failure(IOException(ec.message()));
             }
-            release_buffer(m_outbox.front()->extract_buffer());
+            recycle_buffer(m_outbox.front()->extract_buffer());
             m_outbox.pop_front();
             --nb_buffers;
         }
@@ -194,7 +203,7 @@ void Connection::send_outbox()
 
 void Connection::start_async_read_chain()
 {
-    auto buffer = std::make_shared<BinaryBuffer>(allocate_buffer(sizeof(std::uint32_t)));
+    auto buffer = std::make_shared<BinaryBuffer>(acquire_buffer(sizeof(std::uint32_t)));
     buffer->resize(sizeof(std::uint32_t));
 
     auto callback = [this, buffer, self = shared_from_this()](const boost::system::error_code& ec, std::size_t) {
@@ -254,7 +263,9 @@ void Connection::start_writer_idle_monitoring()
     m_writer_idle_timer.expires_after(m_writer_idle_timeout);
     m_writer_idle_timer.async_wait(io::bind_executor(m_strand, [this, self = shared_from_this()](const boost::system::error_code& ec) {
         if (!ec && m_writer_idle_handler) {
-            m_writer_idle_handler();
+            // Copied in case the handler closes the connection, which clears the member
+            auto handler = m_writer_idle_handler;
+            handler();
         }
     }));
 }
@@ -267,7 +278,9 @@ void Connection::start_reader_idle_monitoring()
     m_reader_idle_timer.expires_after(m_reader_idle_timeout);
     m_reader_idle_timer.async_wait(io::bind_executor(m_strand, [this, self = shared_from_this()](const boost::system::error_code& ec) {
         if (!ec && m_reader_idle_handler) {
-            m_reader_idle_handler();
+            // Copied in case the handler closes the connection, which clears the member
+            auto handler = m_reader_idle_handler;
+            handler();
         }
     }));
 }

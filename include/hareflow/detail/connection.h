@@ -26,13 +26,13 @@ class Connection : public std::enable_shared_from_this<Connection>
 public:
     static std::shared_ptr<Connection> create(std::string host, std::uint16_t port, bool use_ssl, bool verify_host);
 
-    void connect();
-    void shutdown();
+    void              connect();
+    std::future<void> close();
 
     void                      set_writer_idle_handler(std::chrono::seconds timeout, std::function<void()> handler);
     void                      set_reader_idle_handler(std::chrono::seconds timeout, std::function<void()> handler);
-    BinaryBuffer              allocate_buffer(std::size_t size);
-    void                      release_buffer(BinaryBuffer buffer);
+    BinaryBuffer              acquire_buffer(std::size_t size);
+    void                      recycle_buffer(BinaryBuffer buffer);
     std::future<void>         write(BinaryBuffer buffer);
     std::future<BinaryBuffer> read();
 
@@ -91,6 +91,7 @@ private:
     };
 
     Connection(std::string host, std::uint16_t port, bool use_ssl, bool verify_host);
+    void internal_close();
     void send_outbox();
     void start_async_read_chain();
     void start_writer_idle_monitoring();

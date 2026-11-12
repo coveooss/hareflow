@@ -46,13 +46,14 @@ public:
     void                         publish_encoded(std::uint8_t publisher_id, const std::vector<PublishCommand::Message>& messages) override;
 
 private:
-    enum class Status { Initialized, Starting, Started, Stopping };
+    enum class Status { Initialized, Starting, Started, Stopping, Stopped };
     using ResponsePromise = std::promise<std::unique_ptr<ServerResponse>>;
     using ResponseFuture  = std::future<std::unique_ptr<ServerResponse>>;
 
     ClientImpl(ClientParameters parameters);
 
-    void                     shutdown(std::optional<ShutdownReason> reason) noexcept;
+    bool                     request_shutdown(ShutdownReason reason) noexcept;
+    void                     finalize_shutdown() noexcept;
     Properties               peer_properties();
     void                     authenticate();
     std::vector<std::string> sasl_handshake();
@@ -61,7 +62,6 @@ private:
 
     void complete_outstanding_request(std::unique_ptr<ServerResponse> response);
     void drop_outstanding_request(std::uint32_t correlation_id);
-    void fail_all_outstanding_requests();
 
     template<typename ResponseType> std::unique_ptr<ResponseType> send_request_check_response_code(const ClientRequest& request);
     template<typename ResponseType> std::unique_ptr<ResponseType> send_request_wait_response(const ClientRequest& request);
@@ -81,26 +81,26 @@ private:
 
     std::shared_ptr<Connection> m_connection;
 
-    std::string                m_user;
-    std::string                m_password;
-    std::string                m_virtual_host;
-    std::chrono::seconds       m_rpc_timeout;
-    std::chrono::seconds       m_heartbeat;
-    std::uint32_t              m_max_frame_size;
-    CodecPtr                   m_codec;
-    ChunkListener              m_chunk_listener;
-    MessageListener            m_message_listener;
-    PublishConfirmListener     m_publish_confirm_listener;
-    PublishErrorListener       m_publish_error_listener;
-    MetadataListener           m_metadata_listener;
-    CreditErrorListener        m_credit_error_listener;
-    ShutdownListener           m_shutdown_listener;
-    Properties                 m_client_properties;
-    Properties                 m_server_properties;
-    Properties                 m_connection_properties;
-    std::atomic<std::uint32_t> m_correlation_sequence;
-    std::atomic<Status>        m_status;
-    std::atomic<bool>          m_heartbeat_timed_out;
+    std::string                 m_user;
+    std::string                 m_password;
+    std::string                 m_virtual_host;
+    std::chrono::seconds        m_rpc_timeout;
+    std::chrono::seconds        m_heartbeat;
+    std::uint32_t               m_max_frame_size;
+    CodecPtr                    m_codec;
+    ChunkListener               m_chunk_listener;
+    MessageListener             m_message_listener;
+    PublishConfirmListener      m_publish_confirm_listener;
+    PublishErrorListener        m_publish_error_listener;
+    MetadataListener            m_metadata_listener;
+    CreditErrorListener         m_credit_error_listener;
+    ShutdownListener            m_shutdown_listener;
+    Properties                  m_client_properties;
+    Properties                  m_server_properties;
+    Properties                  m_connection_properties;
+    std::atomic<std::uint32_t>  m_correlation_sequence;
+    std::atomic<Status>         m_status;
+    std::atomic<ShutdownReason> m_shutdown_reason;
 
     std::promise<void> m_tune_promise;
 

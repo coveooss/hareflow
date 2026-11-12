@@ -58,6 +58,9 @@ std::uint16_t compute_effective_port(std::uint16_t port, bool use_ssl)
 
 const std::uint16_t MAX_REFERENCE_LENGTH = 256;
 
+// Value of ClientImpl::m_shutdown_reason until a shutdown is requested
+constexpr hareflow::ShutdownReason NO_SHUTDOWN_REQUESTED = static_cast<hareflow::ShutdownReason>(-1);
+
 const hareflow::Properties DEFAULT_CLIENT_PROPERTIES = {{"product", "Hareflow: A RabbitMQ Stream C++ Client"},
                                                         {"platform", "C++"},
                                                         {"version", "0.3.0"},
@@ -114,6 +117,8 @@ std::shared_ptr<ClientImpl> ClientImpl::create(ClientParameters parameters)
 
 ClientImpl::~ClientImpl()
 {
+    // When all other references are dropped while finalize_shutdown() runs, typically by the shutdown listener, this runs at the end of
+    // handle_frames(), on the frame handling thread, which can't join itself.
     stop();
     if (std::this_thread::get_id() == m_frame_handling_thread.get_id()) {
         m_frame_handling_thread.detach();
@@ -154,19 +159,21 @@ void ClientImpl::start()
 
 void ClientImpl::stop()
 {
-    if (Status previous_status = m_status.exchange(Status::Stopping); previous_status != Status::Stopping) {
-        if (previous_status == Status::Started) {
-            ClientCloseRequest request(++m_correlation_sequence, ResponseCode::Ok, "OK");
-            try {
-                send_request_check_response_code<GenericResponse>(request);
-            } catch (const StreamException& e) {
-                Logger::warn("Failed to cleanly stop client, closing connection forcefully: {}", e.what());
-            }
-            shutdown(ShutdownReason::ClientInitiated);
-        } else {
-            shutdown(std::nullopt);
+    Status status = Status::Started;
+    if (m_status.compare_exchange_strong(status, Status::Stopping)) {
+        ClientCloseRequest request(++m_correlation_sequence, ResponseCode::Ok, "OK");
+        try {
+            send_request_check_response_code<GenericResponse>(request);
+        } catch (const StreamException& e) {
+            Logger::warn("Failed to cleanly stop client, closing connection forcefully: {}", e.what());
         }
+    } else if (status == Status::Initialized || status == Status::Starting) {
+        // Makes start() fail and keeps the shutdown listener from being called. If start() completes concurrently, this fails and the
+        // connection is closed below without a handshake, which is still reported as client initiated.
+        m_status.compare_exchange_strong(status, Status::Stopped);
     }
+
+    request_shutdown(ShutdownReason::ClientInitiated);
     if (std::this_thread::get_id() != m_frame_handling_thread.get_id() && m_frame_handling_thread.joinable()) {
         m_frame_handling_thread.join();
     }
@@ -353,7 +360,7 @@ ClientImpl::ClientImpl(ClientParameters parameters)
    m_connection_properties{},
    m_correlation_sequence{0},
    m_status{Status::Initialized},
-   m_heartbeat_timed_out{false},
+   m_shutdown_reason{NO_SHUTDOWN_REQUESTED},
    m_tune_promise{},
    m_outstanding_mutex{},
    m_outstanding_requests{},
@@ -366,12 +373,49 @@ ClientImpl::ClientImpl(ClientParameters parameters)
                                       parameters.get_verify_host());
 }
 
-void ClientImpl::shutdown(std::optional<ShutdownReason> reason) noexcept
+bool ClientImpl::request_shutdown(ShutdownReason reason) noexcept
 {
-    m_connection->shutdown();
-    fail_all_outstanding_requests();
-    if (m_shutdown_listener && reason) {
-        m_shutdown_listener(*reason);
+    // Only records the reason and closes the connection, without blocking nor calling any listener, so it is safe to call from any thread, including
+    // the connection's strand. Closing the connection makes the frame handling thread exit its loop and call finalize_shutdown().
+    ShutdownReason expected = NO_SHUTDOWN_REQUESTED;
+    if (!m_shutdown_reason.compare_exchange_strong(expected, reason)) {
+        return false;
+    }
+    m_connection->close();
+    return true;
+}
+
+void ClientImpl::finalize_shutdown() noexcept
+{
+    // Called once, by the frame handling thread, when it exits. After this, the connection's idle handlers can no longer call into this object.
+    m_connection->close().get();
+
+    Status previous_status;
+    {
+        // Same lock as send_request(), so no request can be registered after this
+        std::unique_lock lock(m_outstanding_mutex);
+        previous_status = m_status.exchange(Status::Stopped);
+        for (auto& [correlation_id, promise] : m_outstanding_requests) {
+            promise.set_exception(std::make_exception_ptr(IOException("Connection shutdown while waiting for response")));
+        }
+        m_outstanding_requests.clear();
+    }
+
+    if (previous_status != Status::Started && previous_status != Status::Stopping) {
+        // Never reached Started, or stop() was called before start() completed
+        return;
+    }
+
+    // Once stop() was called, the shutdown is client initiated, even if the connection failed during the close handshake
+    ShutdownReason reason = previous_status == Status::Stopping ? ShutdownReason::ClientInitiated : m_shutdown_reason.load();
+    if (reason == ShutdownReason::ServerInitiated) {
+        Logger::info("Server requested close, shutting down connection");
+    } else if (reason == ShutdownReason::Unknown) {
+        Logger::warn("Connection failed unexpectedly");
+    }
+
+    if (m_shutdown_listener) {
+        m_shutdown_listener(reason);
     }
 }
 
@@ -447,20 +491,14 @@ void ClientImpl::drop_outstanding_request(std::uint32_t correlation_id)
     m_outstanding_requests.erase(correlation_id);
 }
 
-void ClientImpl::fail_all_outstanding_requests()
-{
-    std::unique_lock lock(m_outstanding_mutex);
-    for (auto& [correlation_id, promise] : m_outstanding_requests) {
-        promise.set_exception(std::make_exception_ptr(IOException("Connection shutdown while waiting for response")));
-    }
-    m_outstanding_requests.clear();
-}
-
 ClientImpl::ResponseFuture ClientImpl::send_request(const ClientRequest& request)
 {
     ResponseFuture response_future;
     {
         std::unique_lock lock(m_outstanding_mutex);
+        if (m_status.load() == Status::Stopped) {
+            throw IOException("Client is stopped");
+        }
         response_future = m_outstanding_requests.try_emplace(request.get_correlation_id()).first->second.get_future();
     }
     send_frame(request).get();
@@ -475,7 +513,7 @@ std::future<void> ClientImpl::send_frame(const Serializable& frame)
         throw InvalidInputException(fmt::format("Maximum frame size exceeded ({})", m_max_frame_size));
     }
 
-    BinaryBuffer buffer = m_connection->allocate_buffer(frame_size);
+    BinaryBuffer buffer = m_connection->acquire_buffer(frame_size);
     buffer.write_uint(static_cast<std::uint32_t>(frame_data_size));
     frame.serialize(buffer);
 
@@ -484,8 +522,6 @@ std::future<void> ClientImpl::send_frame(const Serializable& frame)
 
 void ClientImpl::handle_frames()
 {
-    ShutdownReason shutdown_reason;
-
     while (true) {
         BinaryBuffer buffer;
         try {
@@ -496,44 +532,37 @@ void ClientImpl::handle_frames()
             bool          is_response = (key & 0x8000) != 0;
             key &= 0x7FFF;
 
-            if (m_status.load() != Status::Stopping) {
+            if (Status status = m_status.load(); status == Status::Starting || status == Status::Started) {
                 if (auto it = FRAME_HANDLERS.find({static_cast<CommandKey>(key), version}); it != FRAME_HANDLERS.end()) {
                     std::invoke(it->second, this, buffer);
                 } else {
                     throw StreamException(fmt::format("Unsupported command {:#04x} at version {}", key, version));
                 }
-            } else if (is_response && static_cast<CommandKey>(key) == CommandKey::Close) {
+            } else if (status == Status::Stopping && is_response && static_cast<CommandKey>(key) == CommandKey::Close) {
                 handle_response<GenericResponse>(buffer);
-                shutdown_reason = ShutdownReason::ClientInitiated;
+                request_shutdown(ShutdownReason::ClientInitiated);
                 break;
             } else {
-                Logger::debug("Skipping frame for command {:#04x}, waiting for response to close request", key);
+                Logger::debug("Skipping frame for command {:#04x}, client is stopping", key);
             }
         } catch (const ServerCloseException&) {
-            shutdown_reason = ShutdownReason::ServerInitiated;
+            request_shutdown(ShutdownReason::ServerInitiated);
             break;
         } catch (const IOException&) {
-            shutdown_reason = m_heartbeat_timed_out ? ShutdownReason::HeartbeatTimeout : ShutdownReason::Unknown;
+            request_shutdown(ShutdownReason::Unknown);
             break;
         } catch (const StreamException& e) {
             Logger::warn("Exception while processing frame: {}", e.what());
         }
 
-        m_connection->release_buffer(std::move(buffer));
+        m_connection->recycle_buffer(std::move(buffer));
     }
 
-    Status expected = Status::Started;
-    if (m_status.compare_exchange_strong(expected, Status::Stopping)) {
-        if (shutdown_reason == ShutdownReason::ServerInitiated) {
-            Logger::info("Server requested close, shutting down connection");
-        } else if (shutdown_reason == ShutdownReason::Unknown) {
-            Logger::warn("Connection failed unexpectedly");
-        }
-
-        // Must not touch ANY member after this call, shutdown callback might have dropped last living reference to object
-        // and have detached this thread from it.
-        shutdown(shutdown_reason);
-    }
+    // Keeps this object alive until this thread is done with it, in case the shutdown listener drops the last reference to it. Only taken now, as
+    // holding it while handling frames would keep the client from ever being destroyed. Empty when the last reference was already dropped, in
+    // which case ~ClientImpl() is running on another thread and waits for this one to exit.
+    std::shared_ptr<ClientImpl> self = weak_from_this().lock();
+    finalize_shutdown();
 }
 
 void ClientImpl::handle_close(BinaryBuffer& buffer)
@@ -620,11 +649,10 @@ void ClientImpl::handle_tune(BinaryBuffer& buffer)
 
     if (m_heartbeat != std::chrono::seconds::zero()) {
         m_connection->set_writer_idle_handler(m_heartbeat, [this]() { send_frame(ClientHeartbeatCommand()); });
+        // Runs on the connection's strand, so it must only request the shutdown, see request_shutdown()
         m_connection->set_reader_idle_handler(m_heartbeat * 2, [this]() {
-            if (m_status.load() == Status::Started) {
+            if (request_shutdown(ShutdownReason::HeartbeatTimeout)) {
                 Logger::warn("Timeout while waiting for server heartbeat, closing connection");
-                m_heartbeat_timed_out = true;
-                m_connection->shutdown();
             }
         });
     }
