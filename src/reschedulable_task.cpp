@@ -30,11 +30,11 @@ void AsyncTask::schedule_after(std::chrono::steady_clock::duration delay)
         }
 
         m_timer.expires_after(delay);
-        m_timer.async_wait(boost::asio::bind_executor(m_strand, [this, self = shared_from_this()](const boost::system::error_code& ec) {
+        m_timer.async_wait([this, self = shared_from_this()](const boost::system::error_code& ec) {
             if (!ec && m_function) {
                 m_function();
             }
-        }));
+        });
     });
 }
 
@@ -53,9 +53,8 @@ void AsyncTask::destroy()
 }
 
 AsyncTask::AsyncTask(std::function<void()> function)
- : m_io_context(IoContextHolder::get()),
-   m_strand(m_io_context),
-   m_timer(m_io_context),
+ : m_strand(boost::asio::make_strand(IoContextHolder::get())),
+   m_timer(m_strand),
    m_function(std::move(function))
 {
 }
