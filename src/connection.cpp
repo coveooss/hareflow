@@ -42,19 +42,9 @@ void Connection::connect()
     start_async_read_chain();
 }
 
-void Connection::initiate_close()
+std::future<void> Connection::close()
 {
-    io::dispatch(m_strand, [this, self = shared_from_this()]() { internal_close(); });
-}
-
-void Connection::shutdown()
-{
-    io::dispatch(m_strand, std::packaged_task<void()>{[this, self = shared_from_this()]() {
-                     internal_close();
-                     m_writer_idle_handler = nullptr;
-                     m_reader_idle_handler = nullptr;
-                 }})
-        .get();
+    return io::dispatch(m_strand, std::packaged_task<void()>{[this, self = shared_from_this()]() { internal_close(); }});
 }
 
 void Connection::set_writer_idle_handler(std::chrono::seconds timeout, std::function<void()> handler)
@@ -163,6 +153,9 @@ void Connection::internal_close()
     boost::system::error_code code;
     m_socket.shutdown(tcp::socket::shutdown_both, code);
     m_socket.close(code);
+
+    m_writer_idle_handler = nullptr;
+    m_reader_idle_handler = nullptr;
     m_writer_idle_timer.cancel();
     m_reader_idle_timer.cancel();
 
@@ -264,26 +257,30 @@ void Connection::start_async_read_chain()
 
 void Connection::start_writer_idle_monitoring()
 {
-    if (!m_writer_idle_handler || m_connection_failed) {
+    if (!m_writer_idle_handler) {
         return;
     }
     m_writer_idle_timer.expires_after(m_writer_idle_timeout);
     m_writer_idle_timer.async_wait(io::bind_executor(m_strand, [this, self = shared_from_this()](const boost::system::error_code& ec) {
         if (!ec && m_writer_idle_handler) {
-            m_writer_idle_handler();
+            // Copied in case the handler closes the connection, which clears the member
+            auto handler = m_writer_idle_handler;
+            handler();
         }
     }));
 }
 
 void Connection::start_reader_idle_monitoring()
 {
-    if (!m_reader_idle_handler || m_connection_failed) {
+    if (!m_reader_idle_handler) {
         return;
     }
     m_reader_idle_timer.expires_after(m_reader_idle_timeout);
     m_reader_idle_timer.async_wait(io::bind_executor(m_strand, [this, self = shared_from_this()](const boost::system::error_code& ec) {
         if (!ec && m_reader_idle_handler) {
-            m_reader_idle_handler();
+            // Copied in case the handler closes the connection, which clears the member
+            auto handler = m_reader_idle_handler;
+            handler();
         }
     }));
 }

@@ -26,12 +26,8 @@ class Connection : public std::enable_shared_from_this<Connection>
 public:
     static std::shared_ptr<Connection> create(std::string host, std::uint16_t port, bool use_ssl, bool verify_host);
 
-    void connect();
-    // Closes the socket without waiting. Safe to call from any thread, including from within an idle handler.
-    void initiate_close();
-    // Closes the socket and waits until the idle handlers are cleared, after which they are guaranteed not to be called anymore.
-    // Blocks on the connection's strand, so it must not be called from an I/O thread unless already running on that strand.
-    void shutdown();
+    void              connect();
+    std::future<void> close();
 
     void                      set_writer_idle_handler(std::chrono::seconds timeout, std::function<void()> handler);
     void                      set_reader_idle_handler(std::chrono::seconds timeout, std::function<void()> handler);

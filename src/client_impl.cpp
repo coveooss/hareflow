@@ -381,14 +381,14 @@ bool ClientImpl::request_shutdown(ShutdownReason reason) noexcept
     if (!m_shutdown_reason.compare_exchange_strong(expected, reason)) {
         return false;
     }
-    m_connection->initiate_close();
+    m_connection->close();
     return true;
 }
 
 void ClientImpl::finalize_shutdown() noexcept
 {
     // Called once, by the frame handling thread, when it exits. After this, the connection's idle handlers can no longer call into this object.
-    m_connection->shutdown();
+    m_connection->close().get();
 
     Status previous_status;
     {
