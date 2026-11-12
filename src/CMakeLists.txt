@@ -6,7 +6,7 @@ target_include_directories(hareflow
         $<INSTALL_INTERFACE:${INSTALL_INCLUDEDIR}>
 )
 
-find_package(Boost REQUIRED)
+find_package(Boost 1.70 REQUIRED)
 find_package(fmt REQUIRED)
 find_package(OpenSSL REQUIRED)
 find_package(ProtonCpp REQUIRED)

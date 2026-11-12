@@ -6,6 +6,8 @@
 
 #include <boost/version.hpp>
 
+static_assert(BOOST_VERSION >= 107000, "hareflow requires Boost 1.70 or newer");
+
 namespace {
 
 const std::uint8_t MAX_POOL_SIZE = 32;
@@ -26,7 +28,7 @@ std::shared_ptr<Connection> Connection::create(std::string host, std::uint16_t p
 void Connection::connect()
 {
     try {
-        tcp::resolver resolver(m_io_context);
+        tcp::resolver resolver(m_strand);
         auto          endpoints = resolver.resolve(m_host, std::to_string(m_port));
         io::connect(m_socket, endpoints);
         m_socket.set_option(tcp::no_delay(true));
@@ -124,9 +126,8 @@ std::future<BinaryBuffer> Connection::read()
 }
 
 Connection::Connection(std::string host, std::uint16_t port, bool use_ssl, bool verify_host)
- : m_io_context(IoContextHolder::get()),
-   m_strand(m_io_context),
-   m_socket(m_io_context),
+ : m_strand(io::make_strand(IoContextHolder::get())),
+   m_socket(m_strand),
    m_ssl(),
    m_host(std::move(host)),
    m_port(port),
@@ -135,10 +136,10 @@ Connection::Connection(std::string host, std::uint16_t port, bool use_ssl, bool 
    m_inbox(),
    m_pending_read(),
    m_writer_idle_timeout(),
-   m_writer_idle_timer(m_io_context),
+   m_writer_idle_timer(m_strand),
    m_writer_idle_handler(),
    m_reader_idle_timeout(),
-   m_reader_idle_timer(m_io_context),
+   m_reader_idle_timer(m_strand),
    m_reader_idle_handler(),
    m_buffer_pool_mutex(),
    m_buffer_pool()
@@ -195,9 +196,9 @@ void Connection::send_outbox()
     }
 
     if (m_ssl) {
-        io::async_write(m_ssl->stream(), buffers, io::bind_executor(m_strand, callback));
+        io::async_write(m_ssl->stream(), buffers, callback);
     } else {
-        io::async_write(m_socket, buffers, io::bind_executor(m_strand, callback));
+        io::async_write(m_socket, buffers, callback);
     }
 }
 
@@ -242,16 +243,16 @@ void Connection::start_async_read_chain()
         };
 
         if (m_ssl) {
-            io::async_read(m_ssl->stream(), buffer->as_asio_buffer() + sizeof(std::uint32_t), io::bind_executor(m_strand, post_to_inbox));
+            io::async_read(m_ssl->stream(), buffer->as_asio_buffer() + sizeof(std::uint32_t), post_to_inbox);
         } else {
-            io::async_read(m_socket, buffer->as_asio_buffer() + sizeof(std::uint32_t), io::bind_executor(m_strand, post_to_inbox));
+            io::async_read(m_socket, buffer->as_asio_buffer() + sizeof(std::uint32_t), post_to_inbox);
         }
     };
 
     if (m_ssl) {
-        io::async_read(m_ssl->stream(), buffer->as_asio_buffer(), io::bind_executor(m_strand, callback));
+        io::async_read(m_ssl->stream(), buffer->as_asio_buffer(), callback);
     } else {
-        io::async_read(m_socket, buffer->as_asio_buffer(), io::bind_executor(m_strand, callback));
+        io::async_read(m_socket, buffer->as_asio_buffer(), callback);
     }
 }
 
@@ -261,13 +262,13 @@ void Connection::start_writer_idle_monitoring()
         return;
     }
     m_writer_idle_timer.expires_after(m_writer_idle_timeout);
-    m_writer_idle_timer.async_wait(io::bind_executor(m_strand, [this, self = shared_from_this()](const boost::system::error_code& ec) {
+    m_writer_idle_timer.async_wait([this, self = shared_from_this()](const boost::system::error_code& ec) {
         if (!ec && m_writer_idle_handler) {
             // Copied in case the handler closes the connection, which clears the member
             auto handler = m_writer_idle_handler;
             handler();
         }
-    }));
+    });
 }
 
 void Connection::start_reader_idle_monitoring()
@@ -276,13 +277,13 @@ void Connection::start_reader_idle_monitoring()
         return;
     }
     m_reader_idle_timer.expires_after(m_reader_idle_timeout);
-    m_reader_idle_timer.async_wait(io::bind_executor(m_strand, [this, self = shared_from_this()](const boost::system::error_code& ec) {
+    m_reader_idle_timer.async_wait([this, self = shared_from_this()](const boost::system::error_code& ec) {
         if (!ec && m_reader_idle_handler) {
             // Copied in case the handler closes the connection, which clears the member
             auto handler = m_reader_idle_handler;
             handler();
         }
-    }));
+    });
 }
 
 Connection::SslAdapter::SslAdapter(tcp_socket& wrapped_socket, const std::string& host, bool verify_host) : m_context(ssl::context::tls_client), m_stream()

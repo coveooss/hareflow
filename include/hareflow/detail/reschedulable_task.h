@@ -25,10 +25,9 @@ public:
 private:
     AsyncTask(std::function<void()> function);
 
-    boost::asio::io_context&        m_io_context;
-    boost::asio::io_context::strand m_strand;
-    boost::asio::steady_timer       m_timer;
-    std::function<void()>           m_function;
+    boost::asio::strand<boost::asio::io_context::executor_type> m_strand;
+    boost::asio::steady_timer                                   m_timer;
+    std::function<void()>                                       m_function;
 };
 
 class ReschedulableTask
@@ -41,7 +40,7 @@ public:
     ~ReschedulableTask();
 
     ReschedulableTask& operator=(const ReschedulableTask&) = delete;
-    ReschedulableTask& operator                            =(ReschedulableTask&& other);
+    ReschedulableTask& operator=(ReschedulableTask&& other);
 
     bool valid() const;
     void schedule_now();

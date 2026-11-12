@@ -97,13 +97,12 @@ private:
     void start_writer_idle_monitoring();
     void start_reader_idle_monitoring();
 
-    boost::asio::io_context&        m_io_context;
-    boost::asio::io_context::strand m_strand;
-    tcp_socket                      m_socket;
-    std::optional<SslAdapter>       m_ssl;
-    std::string                     m_host;
-    std::uint16_t                   m_port;
-    bool                            m_connection_failed;
+    boost::asio::strand<boost::asio::io_context::executor_type> m_strand;
+    tcp_socket                                                  m_socket;
+    std::optional<SslAdapter>                                   m_ssl;
+    std::string                                                 m_host;
+    std::uint16_t                                               m_port;
+    bool                                                        m_connection_failed;
 
     std::deque<std::shared_ptr<OutboxEntry>> m_outbox;
     std::deque<BinaryBuffer>                 m_inbox;

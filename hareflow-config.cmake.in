@@ -2,7 +2,7 @@
 
 if(NOT TARGET hareflow::hareflow)
     include(CMakeFindDependencyMacro)
-    find_dependency(Boost)
+    find_dependency(Boost 1.70)
     find_dependency(fmt)
     find_dependency(OpenSSL)
     find_dependency(ProtonCpp)
