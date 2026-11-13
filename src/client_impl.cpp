@@ -63,7 +63,7 @@ constexpr hareflow::ShutdownReason NO_SHUTDOWN_REQUESTED = static_cast<hareflow:
 
 const hareflow::Properties DEFAULT_CLIENT_PROPERTIES = {{"product", "Hareflow: A RabbitMQ Stream C++ Client"},
                                                         {"platform", "C++"},
-                                                        {"version", "0.3.0"},
+                                                        {"version", "0.5.0"},
                                                         {"license", "Apache License Version 2.0"},
                                                         {"source", "https://github.com/coveooss/hareflow"}};
 
